@@ -1,0 +1,18 @@
+Perjanjian Lisensi Pengguna Akhir (EULA)
+
+Aplikasi: My Kamus Personal (Versi Beta)
+Versi: 0.1.0
+
+1. Penerimaan Syarat
+Dengan menginstal dan menggunakan aplikasi ini, Anda setuju untuk terikat oleh syarat dan ketentuan ini. Karena aplikasi ini masih dalam tahap pengujian (BETA), aplikasi ini disediakan "apa adanya" (as is).
+
+2. Penggunaan Aplikasi
+Aplikasi ini ditujukan murni untuk bantuan pembelajaran kosakata Anda secara personal. Anda setuju untuk tidak merekayasa balik (reverse engineer), memodifikasi, atau mendistribusikan ulang aplikasi ini tanpa izin.
+
+3. Keterbatasan Tanggung Jawab
+Karena ini adalah versi Beta yang sedang diuji coba, Pengembang tidak bertanggung jawab atas *bugs*, kehilangan data, atau masalah lain yang mungkin timbul selama penggunaan. Anda disarankan melakukan pencadangan (backup) data jika diperlukan.
+
+4. Privasi Data Pengguna
+Aplikasi ini sangat menghargai privasi Anda. Semua data kosakata yang Anda tambahkan dikelola oleh sistem yang terhubung langsung dengan akun Anda. Pengembang tidak menjual, menyalahgunakan, atau menyebarkan informasi pribadi Anda.
+
+Terima kasih telah membantu berpartisipasi dalam tahap pengujian My Kamus Personal!

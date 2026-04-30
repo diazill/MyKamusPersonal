@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "683124011929",
+    "firebase_url": "https://mykamus-personal-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "mykamus-personal",
+    "storage_bucket": "mykamus-personal.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:683124011929:android:055774cace57de7b1c9908",
+        "android_client_info": {
+          "package_name": "com.example.my_kamus_personal"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDXrDEyEmqDMbyRTz7lypFtbg3vl1UywbU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
