@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/vocabulary.dart';
 import '../models/sentence.dart';
+import '../models/notification_item.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -10,6 +11,18 @@ class FirestoreService {
   // Add new vocabulary
   Future<void> addVocabulary(Vocabulary vocab) async {
     await _db.collection('vocabularies').add(vocab.toFirestore());
+  }
+
+  // Get all active vocabularies (useful for auto-detection)
+  Future<List<Vocabulary>> getAllVocabularies() async {
+    final querySnapshot = await _db
+        .collection('vocabularies')
+        .get();
+    
+    return querySnapshot.docs
+        .map((doc) => Vocabulary.fromFirestore(doc))
+        .where((vocab) => !vocab.isDeleted)
+        .toList();
   }
 
   // Check if a vocabulary with the exact arti_id (Indonesian meaning) exists
@@ -100,5 +113,30 @@ class FirestoreService {
         .map((snapshot) => snapshot.docs
             .map((doc) => Sentence.fromFirestore(doc))
             .toList());
+  }
+
+  // NOTIFICATIONS
+  
+  // Get stream of notifications
+  Stream<List<NotificationItem>> getNotificationsStream() {
+    return _db
+        .collection('notifications')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => NotificationItem.fromMap(doc.data(), doc.id))
+            .toList());
+  }
+
+  // Add new notification
+  Future<void> addNotification(NotificationItem notification) async {
+    await _db.collection('notifications').add(notification.toMap());
+  }
+
+  // Mark notification as read
+  Future<void> markNotificationAsRead(String id) async {
+    await _db.collection('notifications').doc(id).update({
+      'isRead': true,
+    });
   }
 }

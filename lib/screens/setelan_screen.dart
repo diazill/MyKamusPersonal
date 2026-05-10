@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'trash_screen.dart';
 import '../models/vocabulary.dart';
 import '../services/firestore_service.dart';
@@ -24,6 +25,27 @@ class _SetelanScreenState extends State<SetelanScreen> {
   int _totalImport = 0;
   int _currentImport = 0;
   final FirestoreService _firestoreService = FirestoreService();
+  String _appVersion = 'Loading...';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final PackageInfo info = await PackageInfo.fromPlatform();
+      setState(() {
+        // e.g. "0.1.0"
+        _appVersion = info.version;
+      });
+    } catch (e) {
+      setState(() {
+        _appVersion = '1.0.0'; // Fallback
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,51 +61,48 @@ class _SetelanScreenState extends State<SetelanScreen> {
           color: const Color(0xFFf0f4f8), // Match top nav background
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: SafeArea(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {},
-                    borderRadius: BorderRadius.circular(99),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Icon(Icons.menu, color: colors.outline),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1280),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'ZEN SCHOLAR',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 2.0,
+                        color: colors.primary,
+                      ),
                     ),
-                  ),
-                ),
-                Text(
-                  'ZEN SCHOLAR',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 2.0,
-                    color: colors.primary,
-                  ),
-                ),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {},
-                    borderRadius: BorderRadius.circular(99),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Icon(Icons.account_circle, color: colors.outline),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {},
+                        borderRadius: BorderRadius.circular(99),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Icon(Icons.account_circle, color: colors.outline),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 32, 24, 120),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
             // Page Header
             Text(
               'Setelan',
@@ -472,7 +491,7 @@ class _SetelanScreenState extends State<SetelanScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Versi 1.0.0 (Zen Scholar Edition)',
+                    'Versi $_appVersion (Zen Scholar Edition)',
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 14,
@@ -499,6 +518,8 @@ class _SetelanScreenState extends State<SetelanScreen> {
             ),
           ],
         ),
+      ),
+      ),
       ),
     ),
     if (_isImporting) _buildImportOverlay(colors),

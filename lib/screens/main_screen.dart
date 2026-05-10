@@ -53,11 +53,10 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      extendBody: false,
+      extendBody: true, // Mengizinkan body memanjang ke bawah nav bar sehingga terlihat floating
       body: PageView(
         controller: _pageController,
         physics: const BouncingScrollPhysics(), // Mengizinkan swipe/geser
@@ -72,90 +71,94 @@ class _MainScreenState extends State<MainScreen> {
           (index) => KeepAliveWrapper(child: _screens[index]),
         ),
       ),
-      bottomNavigationBar: Padding(
-        padding: EdgeInsets.only(bottom: bottomPadding),
-        child: AnimatedNotchBottomBar(
-          notchBottomBarController: _notchBottomBarController,
-          color: colors.surfaceContainerLowest.withOpacity(0.9),
-          showLabel: true,
-          shadowElevation: 10,
-          kBottomRadius: 28.0,
-          itemLabelStyle: TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-            color: colors.outline,
-          ),
-          notchColor: colors.primary,
-          removeMargins: false,
-          bottomBarWidth: 500,
-          showShadow: true,
-          durationInMilliSeconds: 300,
-          bottomBarItems: [
-            BottomBarItem(
-              inActiveItem: Icon(Icons.home_outlined, color: colors.outline),
-              activeItem: Icon(Icons.home, color: colors.onPrimary),
-              itemLabel: 'Beranda',
+      bottomNavigationBar: Align(
+        alignment: Alignment.bottomCenter,
+        heightFactor: 1.0,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: bottomPadding > 0 ? bottomPadding : 24.0), // Memberikan jarak dari bawah layar
+          child: AnimatedNotchBottomBar(
+            notchBottomBarController: _notchBottomBarController,
+            color: colors.surfaceContainerLowest.withOpacity(0.9),
+            showLabel: true,
+            shadowElevation: 10,
+            kBottomRadius: 28.0,
+            itemLabelStyle: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: colors.outline,
             ),
-            BottomBarItem(
-              inActiveItem: Icon(
-                Icons.my_library_books_outlined,
-                color: colors.outline,
+            notchColor: colors.primary,
+            removeMargins: false,
+            bottomBarWidth: 500,
+            showShadow: true,
+            durationInMilliSeconds: 300,
+            bottomBarItems: [
+              BottomBarItem(
+                inActiveItem: Icon(Icons.home_outlined, color: colors.outline),
+                activeItem: Icon(Icons.home, color: colors.onPrimary),
+                itemLabel: 'Beranda',
               ),
-              activeItem: Icon(Icons.my_library_books, color: colors.onPrimary),
-              itemLabel: 'Pustaka',
-            ),
-            BottomBarItem(
-              inActiveItem: Icon(
-                Icons.add_circle_outline,
-                color: colors.outline,
+              BottomBarItem(
+                inActiveItem: Icon(
+                  Icons.my_library_books_outlined,
+                  color: colors.outline,
+                ),
+                activeItem: Icon(Icons.my_library_books, color: colors.onPrimary),
+                itemLabel: 'Pustaka',
               ),
-              activeItem: Icon(Icons.add_circle, color: colors.onPrimary),
-              itemLabel: 'Tambah',
-            ),
-            BottomBarItem(
-              inActiveItem: Icon(Icons.school_outlined, color: colors.outline),
-              activeItem: Icon(Icons.school, color: colors.onPrimary),
-              itemLabel: 'Belajar',
-            ),
-            BottomBarItem(
-              inActiveItem: Icon(
-                Icons.settings_outlined,
-                color: colors.outline,
+              BottomBarItem(
+                inActiveItem: Icon(
+                  Icons.add_circle_outline,
+                  color: colors.outline,
+                ),
+                activeItem: Icon(Icons.add_circle, color: colors.onPrimary),
+                itemLabel: 'Tambah',
               ),
-              activeItem: Icon(Icons.settings, color: colors.onPrimary),
-              itemLabel: 'Setelan',
-            ),
-          ],
-          onTap: (index) {
-            setState(() {
-              _isBottomNavTapped = true;
-            });
-            
-            _handleTabChange(index);
-            
-            // Trik optimasi: jika melompat jauh (>1 halaman), kita langsung lewati
-            // halaman tengahnya secara instan agar tidak membebani rendering Blur
-            int currentPage = _pageController.page?.round() ?? _pageController.initialPage;
-            if ((index - currentPage).abs() > 1) {
-              _pageController.jumpToPage(index > currentPage ? index - 1 : index + 1);
-            }
+              BottomBarItem(
+                inActiveItem: Icon(Icons.school_outlined, color: colors.outline),
+                activeItem: Icon(Icons.school, color: colors.onPrimary),
+                itemLabel: 'Belajar',
+              ),
+              BottomBarItem(
+                inActiveItem: Icon(
+                  Icons.settings_outlined,
+                  color: colors.outline,
+                ),
+                activeItem: Icon(Icons.settings, color: colors.onPrimary),
+                itemLabel: 'Setelan',
+              ),
+            ],
+            onTap: (index) {
+              setState(() {
+                _isBottomNavTapped = true;
+              });
+              
+              _handleTabChange(index);
+              
+              // Trik optimasi: jika melompat jauh (>1 halaman), kita langsung lewati
+              // halaman tengahnya secara instan agar tidak membebani rendering Blur
+              int currentPage = _pageController.page?.round() ?? _pageController.initialPage;
+              if ((index - currentPage).abs() > 1) {
+                _pageController.jumpToPage(index > currentPage ? index - 1 : index + 1);
+              }
 
-            _pageController
-                .animateToPage(
-                  index,
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                )
-                .then((_) {
-                  if (mounted) {
-                    setState(() {
-                      _isBottomNavTapped = false;
-                    });
-                  }
-                });
-          },
-          kIconSize: 24.0,
+              _pageController
+                  .animateToPage(
+                    index,
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                  )
+                  .then((_) {
+                    if (mounted) {
+                      setState(() {
+                        _isBottomNavTapped = false;
+                      });
+                    }
+                  });
+            },
+            kIconSize: 24.0,
+          ),
         ),
       ),
     );

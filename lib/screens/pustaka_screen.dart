@@ -64,71 +64,66 @@ class PustakaScreenState extends State<PustakaScreen> {
               color: const Color(0xFFF8F9FA), // TopAppBar Shell bg
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: SafeArea(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1280),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors
-                                .transparent, // transparent hover effect simulated below
-                          ),
-                          child: const Icon(
-                            Icons.menu,
-                            color: Color(0xFF32445b), // text-[#32445b]
-                          ),
+                        Row(
+                          children: [
+                            const Text(
+                              'ZEN SCHOLAR',
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 2.0, // tracking-widest
+                                color: Color(0xFF32445b), // text-[#32445b]
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'ZEN SCHOLAR',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 2.0, // tracking-widest
-                            color: Color(0xFF32445b), // text-[#32445b]
-                          ),
+                        PopupMenuButton<String>(
+                          icon: const Icon(Icons.sort, color: Color(0xFF32445b)),
+                          tooltip: 'Urutkan berdasarkan',
+                          onSelected: (String result) {
+                            setState(() {
+                              _sortBy = result;
+                            });
+                          },
+                          itemBuilder: (BuildContext context) =>
+                              <PopupMenuEntry<String>>[
+                                const PopupMenuItem<String>(
+                                  value: 'Terbaru',
+                                  child: Text('Terbaru'),
+                                ),
+                                const PopupMenuItem<String>(
+                                  value: 'A-Z (Arti)',
+                                  child: Text('A-Z (Arti)'),
+                                ),
+                                const PopupMenuItem<String>(
+                                  value: 'Z-A (Arti)',
+                                  child: Text('Z-A (Arti)'),
+                                ),
+                                const PopupMenuItem<String>(
+                                  value: 'A-Z (Romaji)',
+                                  child: Text('A-Z (Romaji)'),
+                                ),
+                              ],
                         ),
                       ],
                     ),
-                    PopupMenuButton<String>(
-                      icon: const Icon(Icons.sort, color: Color(0xFF32445b)),
-                      tooltip: 'Urutkan berdasarkan',
-                      onSelected: (String result) {
-                        setState(() {
-                          _sortBy = result;
-                        });
-                      },
-                      itemBuilder: (BuildContext context) =>
-                          <PopupMenuEntry<String>>[
-                            const PopupMenuItem<String>(
-                              value: 'Terbaru',
-                              child: Text('Terbaru'),
-                            ),
-                            const PopupMenuItem<String>(
-                              value: 'A-Z (Arti)',
-                              child: Text('A-Z (Arti)'),
-                            ),
-                            const PopupMenuItem<String>(
-                              value: 'Z-A (Arti)',
-                              child: Text('Z-A (Arti)'),
-                            ),
-                            const PopupMenuItem<String>(
-                              value: 'A-Z (Romaji)',
-                              child: Text('A-Z (Romaji)'),
-                            ),
-                          ],
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-          body: Column(
-            children: [
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1280),
+              child: Column(
+                children: [
               // Search & Discovery Section
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
@@ -413,170 +408,77 @@ class PustakaScreenState extends State<PustakaScreen> {
                       vocabularies.sort((a, b) => a.romaji.compareTo(b.romaji));
                     }
 
-                    return ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(
-                        24,
-                        0,
-                        24,
-                        120,
-                      ), // Bottom padding for FAB
-                      itemCount: vocabularies.length,
-                      itemBuilder: (itemContext, index) {
-                        final vocab = vocabularies[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 24),
-                          child: Dismissible(
-                            key: Key(vocab.id),
-                            background: Container(
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 24),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFBA1A1A), // text-error
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.delete,
-                                color: Colors.white,
-                              ),
-                            ),
-                            direction: DismissDirection.endToStart,
-                            confirmDismiss: (direction) async {
-                                final colors = Theme.of(itemContext).colorScheme;
-                                final bool? confirm = await showDialog<bool>(
-                                  context: itemContext,
-                                  builder: (BuildContext dialogContext) {
-                                    return Dialog(
-                                    backgroundColor: Colors.transparent,
-                                    elevation: 0,
-                                    child: Container(
-                                      width: double.infinity,
-                                      constraints: const BoxConstraints(maxWidth: 400),
-                                      decoration: BoxDecoration(
-                                        color: colors.surfaceContainerLowest,
-                                        borderRadius: BorderRadius.circular(16),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.2),
-                                            blurRadius: 24,
-                                            offset: const Offset(0, 10),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Padding(
-                                            padding: const EdgeInsets.all(24),
-                                            child: Column(
-                                              children: [
-                                                Container(
-                                                  width: 64,
-                                                  height: 64,
-                                                  decoration: BoxDecoration(
-                                                    color: colors.errorContainer,
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                  child: Icon(
-                                                    Icons.delete_forever,
-                                                    color: colors.onErrorContainer,
-                                                    size: 32,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 16),
-                                                Text(
-                                                  'Hapus Kata?',
-                                                  style: TextStyle(
-                                                    fontFamily: 'Manrope',
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: colors.onSurface,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 8),
-                                                Text(
-                                                  'Apakah Anda yakin ingin menghapus kata ini dari pustaka Anda? Kata akan dipindah ke Tempat Sampah.',
-                                                  textAlign: TextAlign.center,
-                                                  style: TextStyle(
-                                                    fontFamily: 'Inter',
-                                                    fontSize: 14,
-                                                    color: colors.onSurfaceVariant,
-                                                    height: 1.5,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.all(16),
-                                            decoration: BoxDecoration(
-                                              color: colors.surfaceContainerLowest,
-                                              borderRadius: const BorderRadius.only(
-                                                bottomLeft: Radius.circular(16),
-                                                bottomRight: Radius.circular(16),
-                                              ),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Expanded(
-                                                  child: OutlinedButton(
-                                                    onPressed: () => Navigator.of(dialogContext).pop(false),
-                                                    style: OutlinedButton.styleFrom(
-                                                      foregroundColor: colors.onSurface,
-                                                      side: BorderSide(color: colors.outlineVariant),
-                                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius: BorderRadius.circular(999),
-                                                      ),
-                                                    ),
-                                                    child: const Text('Batal', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold)),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: ElevatedButton(
-                                                    onPressed: () => Navigator.of(dialogContext).pop(true),
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: colors.error,
-                                                      foregroundColor: colors.onError,
-                                                      elevation: 0,
-                                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius: BorderRadius.circular(999),
-                                                      ),
-                                                    ),
-                                                    child: const Text('Hapus', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold)),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              );
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isDesktop = constraints.maxWidth > 800;
 
-                              if (confirm == true) {
-                                try {
-                                  await _firestoreService.softDeleteVocabulary(vocab.id);
-                                  if (mounted) {
-                                    SnackbarUtils.showCustomAlert(context, isSuccess: true, message: 'Kata dipindah ke Tempat Sampah');
-                                  }
-                                  return true;
-                                } catch (e) {
-                                  if (mounted) {
-                                    SnackbarUtils.showCustomAlert(context, isSuccess: false, message: 'Gagal menghapus: $e');
-                                  }
-                                  return false;
-                                }
-                              }
-                              return false;
+                        if (isDesktop) {
+                          return GridView.builder(
+                            padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 350,
+                              mainAxisExtent: 320, // Approximate height of the card
+                              crossAxisSpacing: 24,
+                              mainAxisSpacing: 24,
+                            ),
+                            itemCount: vocabularies.length,
+                            itemBuilder: (itemContext, index) {
+                              final vocab = vocabularies[index];
+                              return Dismissible(
+                                key: Key(vocab.id),
+                                background: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 24),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFBA1A1A), // text-error
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(
+                                    Icons.delete,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                direction: DismissDirection.endToStart,
+                                confirmDismiss: (direction) async {
+                                  // Same dismiss logic...
+                                  return await _showDeleteConfirmDialog(itemContext, vocab);
+                                },
+                                child: _buildVocabularyCard(vocab),
+                              );
                             },
-                            onDismissed: (direction) {
-                            },
-                            child: _buildVocabularyCard(vocab),
-                          ),
+                          );
+                        }
+
+                        // Mobile View
+                        return ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+                          itemCount: vocabularies.length,
+                          itemBuilder: (itemContext, index) {
+                            final vocab = vocabularies[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 24),
+                              child: Dismissible(
+                                key: Key(vocab.id),
+                                background: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 24),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFBA1A1A), // text-error
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(
+                                    Icons.delete,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                direction: DismissDirection.endToStart,
+                                confirmDismiss: (direction) async {
+                                  return await _showDeleteConfirmDialog(itemContext, vocab);
+                                },
+                                child: _buildVocabularyCard(vocab),
+                              ),
+                            );
+                          },
                         );
                       },
                     );
@@ -585,6 +487,8 @@ class PustakaScreenState extends State<PustakaScreen> {
               ),
             ],
           ),
+        ),
+      ),
           floatingActionButton: FloatingActionButton(
             onPressed: () {},
             backgroundColor: const Color(0xFF32445b), // primary
@@ -600,6 +504,140 @@ class PustakaScreenState extends State<PustakaScreen> {
         ),
       ),
     );
+  }
+
+  Future<bool?> _showDeleteConfirmDialog(BuildContext context, Vocabulary vocab) async {
+    final colors = Theme.of(context).colorScheme;
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxWidth: 400),
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: colors.errorContainer,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.delete_forever,
+                          color: colors.onErrorContainer,
+                          size: 32,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Hapus Kata?',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: colors.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Apakah Anda yakin ingin menghapus kata ini dari pustaka Anda? Kata akan dipindah ke Tempat Sampah.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 14,
+                          color: colors.onSurfaceVariant,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerLowest,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(dialogContext).pop(false),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: colors.onSurface,
+                            side: BorderSide(color: colors.outlineVariant),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                          ),
+                          child: const Text('Batal', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(dialogContext).pop(true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colors.error,
+                            foregroundColor: colors.onError,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                          ),
+                          child: const Text('Hapus', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (confirm == true) {
+      try {
+        await _firestoreService.softDeleteVocabulary(vocab.id);
+        if (mounted) {
+          SnackbarUtils.showCustomAlert(context, isSuccess: true, message: 'Kata dipindah ke Tempat Sampah');
+        }
+        return true;
+      } catch (e) {
+        if (mounted) {
+          SnackbarUtils.showCustomAlert(context, isSuccess: false, message: 'Gagal menghapus: $e');
+        }
+        return false;
+      }
+    }
+    return false;
   }
 
   Widget _buildSubNavTab(String title, String filterValue, bool isActive) {

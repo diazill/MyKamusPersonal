@@ -4,7 +4,7 @@
 
 #define MyAppName "My Kamus Personal"
 #define MyAppVersion "0.1.0"
-#define MyAppPublisher "My Kamus Personal"
+#define MyAppPublisher "diazill dev"
 #define MyAppExeName "my_kamus_personal.exe"
 
 [Setup]

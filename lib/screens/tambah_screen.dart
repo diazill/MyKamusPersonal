@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/vocabulary.dart';
 import '../models/sentence.dart';
 import '../services/firestore_service.dart';
+import '../models/notification_item.dart';
 import '../utils/snackbar_utils.dart';
 
 class TambahScreen extends StatefulWidget {
@@ -32,8 +33,6 @@ class TambahScreenState extends State<TambahScreen> {
   final _sentRomajiController = TextEditingController();
   final _sentMeaningController = TextEditingController();
   final _sentNotesController = TextEditingController();
-  final _sentTagsController = TextEditingController(); 
-  final _sentVocabIdsController = TextEditingController();
 
   final _firestoreService = FirestoreService();
 
@@ -50,8 +49,6 @@ class TambahScreenState extends State<TambahScreen> {
     _sentRomajiController.clear();
     _sentMeaningController.clear();
     _sentNotesController.clear();
-    _sentTagsController.clear();
-    _sentVocabIdsController.clear();
     FocusScope.of(context).unfocus();
   }
 
@@ -69,8 +66,6 @@ class TambahScreenState extends State<TambahScreen> {
     _sentRomajiController.dispose();
     _sentMeaningController.dispose();
     _sentNotesController.dispose();
-    _sentTagsController.dispose();
-    _sentVocabIdsController.dispose();
     super.dispose();
   }
 
@@ -86,51 +81,56 @@ class TambahScreenState extends State<TambahScreen> {
           color: const Color(0xFFf0f4f8), 
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: SafeArea(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1280),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          // TODO: Handle back navigation
-                        },
-                        borderRadius: BorderRadius.circular(99),
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Icon(Icons.close, color: colors.primary),
+                    Row(
+                      children: [
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              // TODO: Handle back navigation
+                            },
+                            borderRadius: BorderRadius.circular(99),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Icon(Icons.close, color: colors.primary),
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _isWordTab ? 'Tambah Kata Baru' : 'Tambah Kalimat Baru',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
+                            color: colors.primary,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _isWordTab ? 'Tambah Kata Baru' : 'Tambah Kalimat Baru',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: -0.5,
-                        color: colors.primary,
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: colors.surfaceContainerHigh,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.person,
+                        size: 20,
+                        color: colors.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: colors.surfaceContainerHigh,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.person,
-                    size: 20,
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -179,7 +179,29 @@ class TambahScreenState extends State<TambahScreen> {
                     _buildSegmentControl(colors),
                     const SizedBox(height: 32),
                     
-                    if (_isWordTab) _buildKataForm(colors) else _buildKalimatForm(colors),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 400),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (Widget child, Animation<double> animation) {
+                        final isKata = (child.key as ValueKey?)?.value == 'kataForm';
+                        final offsetAnimation = Tween<Offset>(
+                          begin: Offset(isKata ? -1.0 : 1.0, 0.0),
+                          end: Offset.zero,
+                        ).animate(animation);
+
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: offsetAnimation,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: _isWordTab
+                          ? KeyedSubtree(key: const ValueKey('kataForm'), child: _buildKataForm(colors))
+                          : KeyedSubtree(key: const ValueKey('kalimatForm'), child: _buildKalimatForm(colors)),
+                    ),
                     
                     const SizedBox(height: 48),
                     _buildActionButtons(colors),
@@ -462,59 +484,10 @@ class TambahScreenState extends State<TambahScreen> {
           controller: _sentNotesController,
         ),
         const SizedBox(height: 24),
-
-        _buildAlignedLabel('TAGS'),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: colors.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildTagChip('Formal'),
-              _buildTagChip('Anime'),
-              // You can build logic to add more tags later
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        _buildAlignedLabel('HUBUNGKAN KATA'),
-        _buildCenteredInputField(
-          context: context,
-          hint: 'Pilih Kata...',
-          fontFamily: 'Inter',
-          fontSize: 14,
-          controller: _sentVocabIdsController,
-          alignLeft: true,
-          isRounded: true,
-        ),
       ],
     );
   }
 
-  Widget _buildTagChip(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: Colors.grey.shade700,
-        ),
-      ),
-    );
-  }
 
   Widget _buildActionButtons(ColorScheme colors) {
     return Column(
@@ -605,6 +578,27 @@ class TambahScreenState extends State<TambahScreen> {
 
       await _firestoreService.addVocabulary(vocab);
       
+      // Cek target harian
+      final allVocabs = await _firestoreService.getAllVocabularies();
+      final today = DateTime.now();
+      final todayCount = allVocabs.where((v) => 
+        v.createdAt.year == today.year && 
+        v.createdAt.month == today.month && 
+        v.createdAt.day == today.day
+      ).length;
+
+      if (todayCount == 3) {
+        final notif = NotificationItem(
+          id: '',
+          title: 'Target Tercapai!',
+          description: 'Selamat! Kamu telah mencapai target harian 3 kata hari ini.',
+          type: 'target',
+          createdAt: DateTime.now(),
+          createdBy: 'system',
+        );
+        await _firestoreService.addNotification(notif);
+      }
+      
       if (mounted) {
         SnackbarUtils.showCustomAlert(context, isSuccess: true, message: 'Entri kata berhasil disimpan');
         resetInputs();
@@ -635,7 +629,7 @@ class TambahScreenState extends State<TambahScreen> {
         meaning: _sentMeaningController.text,
         notes: _sentNotesController.text,
         tags: [], // Add actual tags later
-        vocabIds: [], // Add actual linked vocab logic later
+        vocabIds: [], // Word linking logic to be determined later
         srsLevel: 0,
         nextReview: DateTime.now(),
         createdAt: DateTime.now(),

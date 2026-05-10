@@ -27,27 +27,35 @@ class _BelajarScreenState extends State<BelajarScreen> {
           color: const Color(0xFFf0f4f8),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: SafeArea(
-            child: Row(
-              children: [
-                const Text('🃏', style: TextStyle(fontSize: 24)),
-                const SizedBox(width: 12),
-                Text(
-                  'Mode Belajar',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: colors.primary,
-                    letterSpacing: -0.5,
-                  ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1280),
+                child: Row(
+                  children: [
+                    const Text('🃏', style: TextStyle(fontSize: 24)),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Mode Belajar',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: colors.primary,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
             // Pilih Kategori
             Text(
               'Pilih Kategori:',
@@ -199,6 +207,8 @@ class _BelajarScreenState extends State<BelajarScreen> {
             ),
           ],
         ),
+      ),
+      ),
       ),
     );
   }
