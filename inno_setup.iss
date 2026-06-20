@@ -3,7 +3,7 @@
 ; sebelum men-compile script ini dengan Inno Setup!
 
 #define MyAppName "My Kamus Personal"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.2.0"
 #define MyAppPublisher "diazill dev"
 #define MyAppExeName "my_kamus_personal.exe"
 
@@ -17,7 +17,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 LicenseFile=eula.txt
 OutputDir=build\windows\installer
-OutputBaseFilename=MyKamusPersonal_Installer_v0.1.0
+OutputBaseFilename=MyKamusPersonal_Installer_v0.2.0
 SetupIconFile=windows\runner\resources\app_icon.ico
 Compression=lzma
 SolidCompression=yes
