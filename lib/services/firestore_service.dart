@@ -105,14 +105,49 @@ class FirestoreService {
     await _db.collection('sentences').add(sentence.toFirestore());
   }
 
-  // Get stream of sentences
+  // Get stream of active sentences
   Stream<List<Sentence>> getSentencesStream() {
     return _db
         .collection('sentences')
+        .orderBy('created_at', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => Sentence.fromFirestore(doc))
+            .where((s) => !s.isDeleted)
             .toList());
+  }
+
+  // Get stream of DELETED sentences (Trash)
+  Stream<List<Sentence>> getDeletedSentencesStream() {
+    return _db
+        .collection('sentences')
+        .orderBy('deleted_at', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Sentence.fromFirestore(doc))
+            .where((s) => s.isDeleted)
+            .toList());
+  }
+
+  // Soft delete sentence (move to trash)
+  Future<void> softDeleteSentence(String id) async {
+    await _db.collection('sentences').doc(id).update({
+      'is_deleted': true,
+      'deleted_at': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // Restore sentence from trash
+  Future<void> restoreSentence(String id) async {
+    await _db.collection('sentences').doc(id).update({
+      'is_deleted': false,
+      'deleted_at': FieldValue.delete(),
+    });
+  }
+
+  // Permanently Delete sentence
+  Future<void> deleteSentencePermanently(String id) async {
+    await _db.collection('sentences').doc(id).delete();
   }
 
   // NOTIFICATIONS
@@ -138,5 +173,20 @@ class FirestoreService {
     await _db.collection('notifications').doc(id).update({
       'isRead': true,
     });
+  }
+
+  // APP CONFIG (UPDATES)
+  
+  // Get latest app version info
+  Future<Map<String, dynamic>?> checkUpdate() async {
+    try {
+      final doc = await _db.collection('app_config').doc('version_info').get();
+      if (doc.exists) {
+        return doc.data();
+      }
+    } catch (e) {
+      print('Error checking for updates: $e');
+    }
+    return null;
   }
 }

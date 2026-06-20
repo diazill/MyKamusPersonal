@@ -6,6 +6,7 @@ import '../models/vocabulary.dart';
 import '../models/sentence.dart';
 import '../models/notification_item.dart';
 import 'detail_screen.dart';
+import 'sentence_detail_screen.dart';
 
 class BerandaScreen extends StatefulWidget {
   const BerandaScreen({Key? key}) : super(key: key);
@@ -249,6 +250,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
         // Search Bar
         Container(
           decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.02),
@@ -266,11 +268,28 @@ class _BerandaScreenState extends State<BerandaScreen> {
                 color: colors.outline.withOpacity(0.6),
                 fontWeight: FontWeight.w500,
               ),
+              filled: true,
+              fillColor: Colors.white,
               prefixIcon: Padding(
                 padding: const EdgeInsets.only(right: 12, left: 8),
                 child: Icon(Icons.search, color: colors.outline),
               ),
               prefixIconConstraints: const BoxConstraints(minWidth: 40),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(999),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(999),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(999),
+                borderSide: BorderSide(
+                  color: colors.primary.withOpacity(0.5),
+                ),
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 20),
             ),
           ),
         ),
@@ -547,74 +566,114 @@ class _BerandaScreenState extends State<BerandaScreen> {
 
         StreamBuilder<List<Vocabulary>>(
           stream: _firestoreService.getVocabulariesStream(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: Padding(
-                padding: EdgeInsets.all(24.0),
-                child: CircularProgressIndicator(),
-              ));
-            }
-            if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            }
-            
-            final vocabularies = snapshot.data ?? [];
-            if (vocabularies.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24.0),
-                child: Center(
-                  child: Text(
-                    'Belum ada kata yang ditambahkan.',
-                    style: TextStyle(color: colors.outline),
-                  ),
-                ),
-              );
-            }
+          builder: (context, vocabSnapshot) {
+            return StreamBuilder<List<Sentence>>(
+              stream: _firestoreService.getSentencesStream(),
+              builder: (context, sentenceSnapshot) {
+                if (vocabSnapshot.connectionState == ConnectionState.waiting && sentenceSnapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: CircularProgressIndicator(),
+                  ));
+                }
+                
+                List<dynamic> allItems = [];
+                if (vocabSnapshot.hasData) allItems.addAll(vocabSnapshot.data!);
+                if (sentenceSnapshot.hasData) allItems.addAll(sentenceSnapshot.data!);
 
-            return Column(
-              children: vocabularies.take(5).map((vocab) {
-                
-                Color catColor = colors.primary;
-                Color catBg = colors.primaryContainer;
-                String displayCat = vocab.category.toUpperCase();
-                
-                final catLower = vocab.category.toLowerCase();
-                if (catLower.contains('kerja') || catLower.contains('verba')) {
-                  catColor = const Color(0xFF138973); // Dark teal
-                  catBg = const Color(0xFF90F4D0);    // Light mint
-                  displayCat = 'KATA KERJA';
-                } else if (catLower.contains('sifat')) {
-                  catColor = const Color(0xFFA14930); // Dark red/brown
-                  catBg = const Color(0xFFF7D6C8);    // Peach
-                  displayCat = 'KATA SIFAT';
-                } else if (catLower.contains('benda')) {
-                  catColor = const Color(0xFF4C658D); // Dark slate blue
-                  catBg = const Color(0xFFD3EEFC);    // Light blue
-                  displayCat = 'KATA BENDA';
+                if (allItems.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24.0),
+                    child: Center(
+                      child: Text(
+                        'Belum ada item yang ditambahkan.',
+                        style: TextStyle(color: colors.outline),
+                      ),
+                    ),
+                  );
                 }
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12.0),
-                  child: RecentlyAddedCard(
-                    kanjiChar: vocab.kanji.isNotEmpty ? vocab.kanji[0] : (vocab.reading.isNotEmpty ? vocab.reading[0] : '?'),
-                    word: vocab.kanji.isNotEmpty ? vocab.kanji : vocab.reading,
-                    furigana: vocab.kanji.isNotEmpty ? vocab.reading : vocab.romaji,
-                    meaning: vocab.meaningId,
-                    category: displayCat,
-                    categoryColor: catColor,
-                    categoryBgColor: catBg,
-                    onTap: () {
-                      FocusScope.of(context).unfocus(); // Unfocus text field
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => DetailScreen(vocab: vocab),
-                        ),
-                      );
-                    },
-                  ),
+                // Sort by newest
+                allItems.sort((a, b) => (b.createdAt as DateTime).compareTo(a.createdAt as DateTime));
+
+                return Column(
+                  children: allItems.take(5).map((item) {
+                    Color catColor = colors.primary;
+                    Color catBg = colors.primaryContainer;
+                    String displayCat = 'UMUM';
+                    
+                    String kanjiChar = '?';
+                    String word = '';
+                    String furigana = '';
+                    String meaning = '';
+                    VoidCallback onTap = () {};
+
+                    if (item is Vocabulary) {
+                      displayCat = item.category.toUpperCase();
+                      final catLower = item.category.toLowerCase();
+                      if (catLower.contains('kerja') || catLower.contains('verba')) {
+                        catColor = const Color(0xFF138973);
+                        catBg = const Color(0xFF90F4D0);
+                        displayCat = 'KATA KERJA';
+                      } else if (catLower.contains('sifat')) {
+                        catColor = const Color(0xFFA14930);
+                        catBg = const Color(0xFFF7D6C8);
+                        displayCat = 'KATA SIFAT';
+                      } else if (catLower.contains('benda')) {
+                        catColor = const Color(0xFF4C658D);
+                        catBg = const Color(0xFFD3EEFC);
+                        displayCat = 'KATA BENDA';
+                      }
+                      
+                      kanjiChar = item.kanji.isNotEmpty ? item.kanji[0] : (item.reading.isNotEmpty ? item.reading[0] : '?');
+                      word = item.kanji.isNotEmpty ? item.kanji : item.reading;
+                      furigana = item.kanji.isNotEmpty ? item.reading : item.romaji;
+                      meaning = item.meaningId;
+                      onTap = () {
+                        FocusScope.of(context).unfocus();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DetailScreen(vocab: item),
+                          ),
+                        );
+                      };
+                    } else if (item is Sentence) {
+                      catColor = const Color(0xFF00504A); // on-secondary-fixed-variant
+                      catBg = const Color(0xFF83D5CA); // secondary-fixed-dim
+                      displayCat = 'KALIMAT';
+                      
+                      kanjiChar = item.jpText.isNotEmpty ? item.jpText[0] : (item.reading.isNotEmpty ? item.reading[0] : '?');
+                      word = item.jpText.isNotEmpty ? item.jpText : item.reading;
+                      furigana = item.jpText.isNotEmpty ? item.reading : item.romaji;
+                      meaning = item.meaning;
+                      onTap = () {
+                        FocusScope.of(context).unfocus();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SentenceDetailScreen(sentence: item),
+                          ),
+                        );
+                      };
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: RecentlyAddedCard(
+                        kanjiChar: kanjiChar,
+                        word: word,
+                        furigana: furigana,
+                        meaning: meaning,
+                        category: displayCat,
+                        categoryColor: catColor,
+                        categoryBgColor: catBg,
+                        onTap: onTap,
+                      ),
+                    );
+                  }).toList(),
                 );
-              }).toList(),
+              },
             );
           },
         ),

@@ -71,9 +71,10 @@ class RecentlyAddedCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.end,
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
                           Text(
                             word,
@@ -84,7 +85,6 @@ class RecentlyAddedCard extends StatelessWidget {
                               color: Color(0xFF0F172A),
                             ),
                           ),
-                          const SizedBox(width: 8),
                           Text(
                             '($furigana)',
                             style: const TextStyle(
@@ -98,7 +98,7 @@ class RecentlyAddedCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 8), // Sedikit renggang ke bawah
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.center, // Pusatkan secara vertikal
+                        crossAxisAlignment: CrossAxisAlignment.start, // Pusatkan secara vertikal
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -118,13 +118,15 @@ class RecentlyAddedCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 12), // Jarak ke arti kata dipanjangkan
-                          Text(
-                            meaning,
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF334155),
+                          Expanded(
+                            child: Text(
+                              meaning,
+                              style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF334155),
+                              ),
                             ),
                           ),
                         ],

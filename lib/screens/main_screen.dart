@@ -5,6 +5,7 @@ import 'beranda_screen.dart';
 import 'tambah_screen.dart';
 import 'belajar_screen.dart';
 import 'setelan_screen.dart';
+import '../utils/update_checker.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({Key? key}) : super(key: key);
@@ -21,6 +22,15 @@ class _MainScreenState extends State<MainScreen> {
       false; // Mencegah bug onPageChanged ketika nabrak beberapa tab
 
   int maxCount = 5;
+
+  @override
+  void initState() {
+    super.initState();
+    // Check for app updates when main screen opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      UpdateChecker.checkForUpdate(context);
+    });
+  }
 
   @override
   void dispose() {

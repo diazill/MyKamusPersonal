@@ -3,7 +3,8 @@ import '../services/firestore_service.dart';
 import '../models/vocabulary.dart';
 import '../utils/snackbar_utils.dart';
 import 'detail_screen.dart';
-
+import '../models/sentence.dart';
+import 'sentence_detail_screen.dart';
 class PustakaScreen extends StatefulWidget {
   const PustakaScreen({Key? key}) : super(key: key);
 
@@ -30,7 +31,7 @@ class PustakaScreenState extends State<PustakaScreen> {
     'Kata Kerja',
     'Kata Sifat',
     'Kata Benda',
-    'Frasa',
+    'Kalimat',
   ];
 
   @override
@@ -128,15 +129,9 @@ class PustakaScreenState extends State<PustakaScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
                 child: Container(
-                  height: 56, // h-14
+                  height: 56,
                   decoration: BoxDecoration(
-                    color: Colors.white, // bg-surface-container-lowest
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: const Color(
-                        0xFFC5C5D4,
-                      ).withOpacity(0.2), // ring-outline-variant/20
-                    ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.02),
@@ -145,50 +140,65 @@ class PustakaScreenState extends State<PustakaScreen> {
                       ),
                     ],
                   ),
-                  child: Row(
-                    children: [
-                      const Padding(
+                  child: TextField(
+                    controller: _searchController,
+                    focusNode: _searchFocusNode,
+                    autofocus: false,
+                    decoration: InputDecoration(
+                      hintText: 'Cari kanji, arti, atau romaji...',
+                      hintStyle: TextStyle(
+                        fontFamily: 'Inter',
+                        color: const Color(0xFFC5C5D4),
+                        fontSize: 16,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      prefixIcon: const Padding(
                         padding: EdgeInsets.only(left: 20, right: 12),
                         child: Icon(
                           Icons.search,
-                          color: Color(0xFF32445b), // text-primary
+                          color: Color(0xFF32445b),
                         ),
                       ),
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          focusNode: _searchFocusNode,
-                          autofocus: false, // Don't auto-read
-                          decoration: InputDecoration(
-                            hintText: 'Cari kanji, arti, atau romaji...',
-                            hintStyle: TextStyle(
-                              fontFamily: 'Inter',
-                              color: const Color(
-                                0xFFC5C5D4,
-                              ), // placeholder text-outline-variant
-                              fontSize: 16,
-                            ),
-                            border: InputBorder.none,
-                            suffixIcon: _searchQuery.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(
-                                      Icons.cancel,
-                                      color: Color(0xFFC5C5D4),
-                                    ),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                    },
-                                  )
-                                : null,
-                          ),
-                          style: const TextStyle(
-                            fontFamily: 'Inter',
-                            color: Color(0xFF191C1E), // text-on-surface
-                            fontSize: 16,
-                          ),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.cancel,
+                                  color: Color(0xFFC5C5D4),
+                                ),
+                                onPressed: () {
+                                  _searchController.clear();
+                                },
+                              ),
+                            )
+                          : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(999),
+                        borderSide: BorderSide(
+                          color: const Color(0xFFC5C5D4).withOpacity(0.2),
                         ),
                       ),
-                    ],
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(999),
+                        borderSide: BorderSide(
+                          color: const Color(0xFFC5C5D4).withOpacity(0.2),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(999),
+                        borderSide: BorderSide(
+                          color: const Color(0xFF32445b).withOpacity(0.5),
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 20),
+                    ),
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      color: Color(0xFF191C1E),
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ),
@@ -339,144 +349,163 @@ class PustakaScreenState extends State<PustakaScreen> {
               Expanded(
                 child: StreamBuilder<List<Vocabulary>>(
                   stream: _firestoreService.getVocabulariesStream(),
-                  builder: (streamContext, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return const Center(
-                        child: Text(
-                          'Koleksi pustaka kosong.',
-                          style: TextStyle(color: Color(0xFF757684)),
-                        ),
-                      );
-                    }
-
-                    // Apply filter logic
-                    List<Vocabulary> vocabularies = snapshot.data!;
-
-                    if (_selectedCategory != 'Semua') {
-                      vocabularies = vocabularies.where((v) {
-                        final catLower = v.category.toLowerCase();
-                        if (_selectedCategory == 'Kata Kerja') {
-                          return catLower.contains('kerja') ||
-                              catLower.contains('verba');
-                        } else if (_selectedCategory == 'Kata Sifat') {
-                          return catLower.contains('sifat');
-                        } else if (_selectedCategory == 'Kata Benda') {
-                          return catLower.contains('benda');
-                        } else {
-                          return catLower.contains(
-                            _selectedCategory.toLowerCase(),
-                          );
+                  builder: (streamContext, vocabSnapshot) {
+                    return StreamBuilder<List<Sentence>>(
+                      stream: _firestoreService.getSentencesStream(),
+                      builder: (streamContext, sentenceSnapshot) {
+                        if (vocabSnapshot.connectionState == ConnectionState.waiting && sentenceSnapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
                         }
-                      }).toList();
-                    }
 
-                    if ((_selectedCategory == 'Kata Kerja' ||
-                            _selectedCategory == 'Kata Sifat') &&
-                        _selectedSubCategory != 'Semua') {
-                      vocabularies = vocabularies
-                          .where((v) => v.subCategory == _selectedSubCategory)
-                          .toList();
-                    }
+                        List<dynamic> allItems = [];
+                        if (vocabSnapshot.hasData) allItems.addAll(vocabSnapshot.data!);
+                        if (sentenceSnapshot.hasData) allItems.addAll(sentenceSnapshot.data!);
 
-                    if (_searchQuery.isNotEmpty) {
-                      vocabularies = vocabularies.where((v) {
-                        return v.kanji.toLowerCase().contains(_searchQuery) ||
-                            v.reading.toLowerCase().contains(_searchQuery) ||
-                            v.romaji.toLowerCase().contains(_searchQuery) ||
-                            v.meaningId.toLowerCase().contains(_searchQuery) ||
-                            v.meaningEn.toLowerCase().contains(_searchQuery) ||
-                            v.catatan.toLowerCase().contains(_searchQuery);
-                      }).toList();
-                    }
-
-                    if (_sortBy == 'Terbaru') {
-                      vocabularies.sort(
-                        (a, b) => b.createdAt.compareTo(a.createdAt),
-                      );
-                    } else if (_sortBy == 'A-Z (Arti)') {
-                      vocabularies.sort(
-                        (a, b) => a.meaningId.compareTo(b.meaningId),
-                      );
-                    } else if (_sortBy == 'Z-A (Arti)') {
-                      vocabularies.sort(
-                        (a, b) => b.meaningId.compareTo(a.meaningId),
-                      );
-                    } else if (_sortBy == 'A-Z (Romaji)') {
-                      vocabularies.sort((a, b) => a.romaji.compareTo(b.romaji));
-                    }
-
-                    return LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isDesktop = constraints.maxWidth > 800;
-
-                        if (isDesktop) {
-                          return GridView.builder(
-                            padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
-                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 350,
-                              mainAxisExtent: 320, // Approximate height of the card
-                              crossAxisSpacing: 24,
-                              mainAxisSpacing: 24,
+                        if (allItems.isEmpty) {
+                          return const Center(
+                            child: Text(
+                              'Koleksi pustaka kosong.',
+                              style: TextStyle(color: Color(0xFF757684)),
                             ),
-                            itemCount: vocabularies.length,
-                            itemBuilder: (itemContext, index) {
-                              final vocab = vocabularies[index];
-                              return Dismissible(
-                                key: Key(vocab.id),
-                                background: Container(
-                                  alignment: Alignment.centerRight,
-                                  padding: const EdgeInsets.only(right: 24),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFBA1A1A), // text-error
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Icon(
-                                    Icons.delete,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                direction: DismissDirection.endToStart,
-                                confirmDismiss: (direction) async {
-                                  // Same dismiss logic...
-                                  return await _showDeleteConfirmDialog(itemContext, vocab);
-                                },
-                                child: _buildVocabularyCard(vocab),
-                              );
-                            },
                           );
                         }
 
-                        // Mobile View
-                        return ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
-                          itemCount: vocabularies.length,
-                          itemBuilder: (itemContext, index) {
-                            final vocab = vocabularies[index];
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 24),
-                              child: Dismissible(
-                                key: Key(vocab.id),
-                                background: Container(
-                                  alignment: Alignment.centerRight,
-                                  padding: const EdgeInsets.only(right: 24),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFBA1A1A), // text-error
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Icon(
-                                    Icons.delete,
-                                    color: Colors.white,
-                                  ),
+                        // Apply filter logic
+                        if (_selectedCategory != 'Semua') {
+                          allItems = allItems.where((v) {
+                            if (v is Vocabulary) {
+                              final catLower = v.category.toLowerCase();
+                              if (_selectedCategory == 'Kata Kerja') return catLower.contains('kerja') || catLower.contains('verba');
+                              if (_selectedCategory == 'Kata Sifat') return catLower.contains('sifat');
+                              if (_selectedCategory == 'Kata Benda') return catLower.contains('benda');
+                              if (_selectedCategory == 'Kalimat') return false; // vocabularies are not kalimat
+                              return catLower.contains(_selectedCategory.toLowerCase());
+                            } else if (v is Sentence) {
+                              if (_selectedCategory == 'Kalimat') return true;
+                              return false;
+                            }
+                            return false;
+                          }).toList();
+                        }
+
+                        if ((_selectedCategory == 'Kata Kerja' || _selectedCategory == 'Kata Sifat') && _selectedSubCategory != 'Semua') {
+                          allItems = allItems.where((v) => v is Vocabulary && v.subCategory == _selectedSubCategory).toList();
+                        }
+
+                        if (_searchQuery.isNotEmpty) {
+                          allItems = allItems.where((v) {
+                            if (v is Vocabulary) {
+                              return v.kanji.toLowerCase().contains(_searchQuery) ||
+                                  v.reading.toLowerCase().contains(_searchQuery) ||
+                                  v.romaji.toLowerCase().contains(_searchQuery) ||
+                                  v.meaningId.toLowerCase().contains(_searchQuery) ||
+                                  v.meaningEn.toLowerCase().contains(_searchQuery) ||
+                                  v.catatan.toLowerCase().contains(_searchQuery);
+                            } else if (v is Sentence) {
+                              return v.jpText.toLowerCase().contains(_searchQuery) ||
+                                  v.reading.toLowerCase().contains(_searchQuery) ||
+                                  v.romaji.toLowerCase().contains(_searchQuery) ||
+                                  v.meaning.toLowerCase().contains(_searchQuery) ||
+                                  v.notes.toLowerCase().contains(_searchQuery);
+                            }
+                            return false;
+                          }).toList();
+                        }
+
+                        if (_sortBy == 'Terbaru') {
+                          allItems.sort((a, b) => (b.createdAt as DateTime).compareTo(a.createdAt as DateTime));
+                        } else if (_sortBy == 'A-Z (Arti)') {
+                          allItems.sort((a, b) {
+                            String artiA = a is Vocabulary ? a.meaningId : (a as Sentence).meaning;
+                            String artiB = b is Vocabulary ? b.meaningId : (b as Sentence).meaning;
+                            return artiA.compareTo(artiB);
+                          });
+                        } else if (_sortBy == 'Z-A (Arti)') {
+                          allItems.sort((a, b) {
+                            String artiA = a is Vocabulary ? a.meaningId : (a as Sentence).meaning;
+                            String artiB = b is Vocabulary ? b.meaningId : (b as Sentence).meaning;
+                            return artiB.compareTo(artiA);
+                          });
+                        } else if (_sortBy == 'A-Z (Romaji)') {
+                          allItems.sort((a, b) {
+                            String romA = a is Vocabulary ? a.romaji : (a as Sentence).romaji;
+                            String romB = b is Vocabulary ? b.romaji : (b as Sentence).romaji;
+                            return romA.compareTo(romB);
+                          });
+                        }
+
+                        return LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isDesktop = constraints.maxWidth > 800;
+
+                            if (isDesktop) {
+                              return GridView.builder(
+                                padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+                                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                  maxCrossAxisExtent: 350,
+                                  mainAxisExtent: 320, // Approximate height of the card
+                                  crossAxisSpacing: 24,
+                                  mainAxisSpacing: 24,
                                 ),
-                                direction: DismissDirection.endToStart,
-                                confirmDismiss: (direction) async {
-                                  return await _showDeleteConfirmDialog(itemContext, vocab);
+                                itemCount: allItems.length,
+                                itemBuilder: (itemContext, index) {
+                                  final item = allItems[index];
+                                  final itemId = item is Vocabulary ? item.id : (item as Sentence).id;
+                                  return Dismissible(
+                                    key: Key(itemId),
+                                    background: Container(
+                                      alignment: Alignment.centerRight,
+                                      padding: const EdgeInsets.only(right: 24),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFBA1A1A), // text-error
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(
+                                        Icons.delete,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    direction: DismissDirection.endToStart,
+                                    confirmDismiss: (direction) async {
+                                      return await _showDeleteConfirmDialog(itemContext, item);
+                                    },
+                                    child: item is Vocabulary ? _buildVocabularyCard(item) : _buildSentenceCard(item),
+                                  );
                                 },
-                                child: _buildVocabularyCard(vocab),
-                              ),
+                              );
+                            }
+
+                            // Mobile View
+                            return ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+                              itemCount: allItems.length,
+                              itemBuilder: (itemContext, index) {
+                                final item = allItems[index];
+                                final itemId = item is Vocabulary ? item.id : (item as Sentence).id;
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 24),
+                                  child: Dismissible(
+                                    key: Key(itemId),
+                                    background: Container(
+                                      alignment: Alignment.centerRight,
+                                      padding: const EdgeInsets.only(right: 24),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFBA1A1A), // text-error
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(
+                                        Icons.delete,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    direction: DismissDirection.endToStart,
+                                    confirmDismiss: (direction) async {
+                                      return await _showDeleteConfirmDialog(itemContext, item);
+                                    },
+                                    child: item is Vocabulary ? _buildVocabularyCard(item) : _buildSentenceCard(item),
+                                  ),
+                                );
+                              },
                             );
                           },
                         );
@@ -506,7 +535,7 @@ class PustakaScreenState extends State<PustakaScreen> {
     );
   }
 
-  Future<bool?> _showDeleteConfirmDialog(BuildContext context, Vocabulary vocab) async {
+  Future<bool?> _showDeleteConfirmDialog(BuildContext context, dynamic item) async {
     final colors = Theme.of(context).colorScheme;
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -625,9 +654,13 @@ class PustakaScreenState extends State<PustakaScreen> {
 
     if (confirm == true) {
       try {
-        await _firestoreService.softDeleteVocabulary(vocab.id);
+        if (item is Vocabulary) {
+          await _firestoreService.softDeleteVocabulary(item.id);
+        } else if (item is Sentence) {
+          await _firestoreService.softDeleteSentence(item.id);
+        }
         if (mounted) {
-          SnackbarUtils.showCustomAlert(context, isSuccess: true, message: 'Kata dipindah ke Tempat Sampah');
+          SnackbarUtils.showCustomAlert(context, isSuccess: true, message: 'Item dipindah ke Tempat Sampah');
         }
         return true;
       } catch (e) {
@@ -775,7 +808,6 @@ class PustakaScreenState extends State<PustakaScreen> {
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFF32445b), // text-primary
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -874,6 +906,151 @@ class PustakaScreenState extends State<PustakaScreen> {
                 Icons.bookmark_border,
                 color: Color(0xFFC5C5D4), // text-outline-variant
                 size: 24,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSentenceCard(Sentence sentence) {
+    Color badgeColor = const Color(0xFF00504A); // on-secondary-fixed-variant
+    Color badgeBg = const Color(0xFF83D5CA); // secondary-fixed-dim
+
+    final displayMain = sentence.jpText.isNotEmpty ? sentence.jpText : sentence.reading;
+    
+    return GestureDetector(
+      onTap: () {
+        FocusScope.of(context).unfocus();
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => SentenceDetailScreen(sentence: sentence)),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Kana/Kanji Center area (larger for sentences, maybe aligned left)
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        sentence.reading,
+                        textAlign: TextAlign.left,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF757684),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        displayMain,
+                        textAlign: TextAlign.left,
+                        style: const TextStyle(
+                          fontFamily: 'Noto Sans JP',
+                          fontSize: 24, // Smaller than 48 for sentences
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.5,
+                          color: Color(0xFF32445b),
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  // Romaji, Label, dan Arti
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              sentence.romaji,
+                              style: const TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF32445b),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: badgeBg,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'KALIMAT',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.5,
+                                color: badgeColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF7F9FC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFFE6E8EB),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.translate,
+                              size: 16,
+                              color: Color(0xFF757684),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                sentence.meaning,
+                                style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF454652),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/vocabulary.dart';
+import '../models/sentence.dart';
 import '../services/firestore_service.dart';
 import '../utils/snackbar_utils.dart';
 
@@ -12,30 +13,42 @@ class TrashScreen extends StatefulWidget {
 
 class _TrashScreenState extends State<TrashScreen> {
   final _firestoreService = FirestoreService();
-  final Set<String> _selectedIds = {};
+  final Set<dynamic> _selectedItems = {};
 
-  bool _isAllSelected(List<Vocabulary> list) => list.isNotEmpty && _selectedIds.length == list.length;
-  bool get _hasSelection => _selectedIds.isNotEmpty;
+  bool _isAllSelected(List<dynamic> list) => list.isNotEmpty && _selectedItems.length == list.length;
+  bool get _hasSelection => _selectedItems.isNotEmpty;
 
-  void _toggleSelectAll(bool? value, List<Vocabulary> list) {
+  void _toggleSelectAll(bool? value, List<dynamic> list) {
     if (value == null) return;
     setState(() {
       if (value) {
-        _selectedIds.addAll(list.map((e) => e.id));
+        _selectedItems.addAll(list);
       } else {
-        _selectedIds.clear();
+        _selectedItems.clear();
       }
     });
   }
 
-  void _toggleItem(String id, bool? value) {
+  void _toggleItem(dynamic item, bool? value) {
     if (value == null) return;
     setState(() {
       if (value) {
-        _selectedIds.add(id);
+        _selectedItems.add(item);
       } else {
-        _selectedIds.remove(id);
+        _selectedItems.removeWhere((i) {
+          if (i is Vocabulary && item is Vocabulary) return i.id == item.id;
+          if (i is Sentence && item is Sentence) return i.id == item.id;
+          return false;
+        });
       }
+    });
+  }
+  
+  bool _isSelected(dynamic item) {
+    return _selectedItems.any((i) {
+      if (i is Vocabulary && item is Vocabulary) return i.id == item.id;
+      if (i is Sentence && item is Sentence) return i.id == item.id;
+      return false;
     });
   }
 
@@ -45,12 +58,16 @@ class _TrashScreenState extends State<TrashScreen> {
   }
 
   Future<void> _processRestore() async {
-    final ids = _selectedIds.toList();
-    for (String id in ids) {
-      await _firestoreService.restoreVocabulary(id);
+    final items = _selectedItems.toList();
+    for (dynamic item in items) {
+      if (item is Vocabulary) {
+        await _firestoreService.restoreVocabulary(item.id);
+      } else if (item is Sentence) {
+        await _firestoreService.restoreSentence(item.id);
+      }
     }
     setState(() {
-      _selectedIds.clear();
+      _selectedItems.clear();
     });
     if (mounted) {
       SnackbarUtils.showCustomAlert(context, isSuccess: true, message: 'Item berhasil dipulihkan');
@@ -58,24 +75,32 @@ class _TrashScreenState extends State<TrashScreen> {
   }
 
   Future<void> _processDeleteForever() async {
-    final ids = _selectedIds.toList();
-    for (String id in ids) {
-      await _firestoreService.deleteVocabulary(id);
+    final items = _selectedItems.toList();
+    for (dynamic item in items) {
+      if (item is Vocabulary) {
+        await _firestoreService.deleteVocabulary(item.id);
+      } else if (item is Sentence) {
+        await _firestoreService.deleteSentencePermanently(item.id);
+      }
     }
     setState(() {
-      _selectedIds.clear();
+      _selectedItems.clear();
     });
     if (mounted) {
       SnackbarUtils.showCustomAlert(context, isSuccess: true, message: 'Item dihapus permanen');
     }
   }
 
-  Future<void> _emptyTrash(List<Vocabulary> list) async {
-    for (var vocab in list) {
-      await _firestoreService.deleteVocabulary(vocab.id);
+  Future<void> _emptyTrash(List<dynamic> list) async {
+    for (dynamic item in list) {
+      if (item is Vocabulary) {
+        await _firestoreService.deleteVocabulary(item.id);
+      } else if (item is Sentence) {
+        await _firestoreService.deleteSentencePermanently(item.id);
+      }
     }
     setState(() {
-      _selectedIds.clear();
+      _selectedItems.clear();
     });
     if (mounted) {
       SnackbarUtils.showCustomAlert(context, isSuccess: true, message: 'Tempat sampah berhasil dikosongkan');
@@ -136,334 +161,372 @@ class _TrashScreenState extends State<TrashScreen> {
       ),
       body: StreamBuilder<List<Vocabulary>>(
         stream: _firestoreService.getDeletedVocabulariesStream(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+        builder: (context, vocabSnapshot) {
+          return StreamBuilder<List<Sentence>>(
+            stream: _firestoreService.getDeletedSentencesStream(),
+            builder: (context, sentenceSnapshot) {
+              if (vocabSnapshot.connectionState == ConnectionState.waiting && sentenceSnapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          final vocabularies = snapshot.data ?? [];
+              List<dynamic> allItems = [];
+              if (vocabSnapshot.hasData) allItems.addAll(vocabSnapshot.data!);
+              if (sentenceSnapshot.hasData) allItems.addAll(sentenceSnapshot.data!);
 
-          return Stack(
-            children: [
-              ListView(
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 120), // Bottom padding untuk action bar
+              // Sort by deleted_at descending
+              allItems.sort((a, b) {
+                DateTime dateA = a is Vocabulary ? (a.deletedAt ?? a.createdAt) : ((a as Sentence).deletedAt ?? a.createdAt);
+                DateTime dateB = b is Vocabulary ? (b.deletedAt ?? b.createdAt) : ((b as Sentence).deletedAt ?? b.createdAt);
+                return dateB.compareTo(dateA);
+              });
+
+              return Stack(
                 children: [
-                  // Header Section
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  ListView(
+                    padding: const EdgeInsets.fromLTRB(24, 32, 24, 120), // Bottom padding untuk action bar
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                      // Header Section
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'ARCHIVE STORAGE',
+                                      style: TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 2.0,
+                                        color: Color(0xFF7c2500), // text-tertiary
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      'Tempat Sampah',
+                                      style: TextStyle(
+                                        fontFamily: 'Manrope',
+                                        fontSize: 36,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: -0.5,
+                                        color: Color(0xFF32445b), // text-primary
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              OutlinedButton.icon(
+                                onPressed: allItems.isEmpty ? null : () => _emptyTrash(allItems),
+                                icon: const Icon(Icons.delete_sweep, size: 20),
+                                label: const Text('Kosongkan', style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.bold)),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFFba1a1a), // text-error
+                                  side: BorderSide(color: const Color(0xFFc5c5d4).withOpacity(0.3)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Selection Controls
+                      if (allItems.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFf2f4f7), // bg-surface-container-low
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Checkbox(
+                                    value: _isAllSelected(allItems),
+                                    onChanged: (val) => _toggleSelectAll(val, allItems),
+                                    activeColor: const Color(0xFF32445b), // primary
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                    side: const BorderSide(color: Color(0xFFc5c5d4)), // outline-variant
+                                  ),
+                                  Text(
+                                    'Pilih Semua (${allItems.length} item)',
+                                    style: const TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xFF454652), // text-on-surface-variant
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Text(
+                                'Diurutkan Tanggal Dihapus',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                  color: Color(0xFF757684), // text-outline
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (allItems.isNotEmpty) const SizedBox(height: 16),
+
+                      // Trash List
+                      if (allItems.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 64),
+                          child: Center(
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Container(
+                                  width: 96,
+                                  height: 96,
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [Color(0xFFe0e3e6), Color(0xFFeceef1)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.auto_delete_outlined, size: 40, color: Color(0xFF757684)),
+                                ),
+                                const SizedBox(height: 16),
                                 const Text(
-                                  'ARCHIVE STORAGE',
+                                  'Fokus pada progres Anda.\nMasa lalu sekadar bahan belajar.',
+                                  textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 2.0,
-                                    color: Color(0xFF7c2500), // text-tertiary
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'Tempat Sampah',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 36,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: -0.5,
-                                    color: Color(0xFF32445b), // text-primary
+                                    color: Color(0xFF757684),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          OutlinedButton.icon(
-                            onPressed: vocabularies.isEmpty ? null : () => _emptyTrash(vocabularies),
-                            icon: const Icon(Icons.delete_sweep, size: 20),
-                            label: const Text('Kosongkan', style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.bold)),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFFba1a1a), // text-error
-                              side: BorderSide(color: const Color(0xFFc5c5d4).withOpacity(0.3)),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
+                        )
+                      else
+                        ...allItems.map((item) {
+                          String mainText = '';
+                          String subText = '';
+                          String meaningText = '';
+                          String badgeText = '';
+                          Color badgeColor = const Color(0xFF454652);
+                          Color badgeBg = const Color(0xFFe6e8eb);
+                          DateTime deletedDate = DateTime.now();
 
-                  // Selection Controls
-                  if (vocabularies.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFf2f4f7), // bg-surface-container-low
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Checkbox(
-                                value: _isAllSelected(vocabularies),
-                                onChanged: (val) => _toggleSelectAll(val, vocabularies),
-                                activeColor: const Color(0xFF32445b), // primary
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                                side: const BorderSide(color: Color(0xFFc5c5d4)), // outline-variant
-                              ),
-                              Text(
-                                'Pilih Semua (${vocabularies.length} item)',
-                                style: const TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF454652), // text-on-surface-variant
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Text(
-                            'Diurutkan Tanggal Dihapus',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                              color: Color(0xFF757684), // text-outline
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (vocabularies.isNotEmpty) const SizedBox(height: 16),
+                          if (item is Vocabulary) {
+                            mainText = item.kanji;
+                            subText = item.romaji;
+                            meaningText = item.meaningId;
+                            deletedDate = item.deletedAt ?? item.createdAt;
+                            bool isWord = item.category.toLowerCase().contains('kata');
+                            badgeText = isWord ? 'WORD' : 'PHRASE';
+                            badgeColor = isWord ? const Color(0xFF454652) : const Color(0xFF0a6f66);
+                            badgeBg = isWord ? const Color(0xFFe6e8eb) : const Color(0xFF9cefe4);
+                          } else if (item is Sentence) {
+                            mainText = item.jpText.isNotEmpty ? item.jpText : item.reading;
+                            subText = item.romaji;
+                            meaningText = item.meaning;
+                            deletedDate = item.deletedAt ?? item.createdAt;
+                            badgeText = 'KALIMAT';
+                            badgeColor = const Color(0xFF00504A);
+                            badgeBg = const Color(0xFF83D5CA);
+                          }
 
-                  // Trash List
-                  if (vocabularies.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 64),
-                      child: Center(
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 96,
-                              height: 96,
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [Color(0xFFe0e3e6), Color(0xFFeceef1)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                shape: BoxShape.circle,
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white, // bg-surface-container-lowest
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.02),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
                               ),
-                              child: const Icon(Icons.auto_delete_outlined, size: 40, color: Color(0xFF757684)),
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Fokus pada progres Anda.\nMasa lalu sekadar bahan belajar.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 14,
-                                color: Color(0xFF757684),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    ...vocabularies.map((vocab) {
-                      bool isWord = vocab.category.toLowerCase().contains('kata');
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white, // bg-surface-container-lowest
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.02),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Checkbox(
-                                value: _selectedIds.contains(vocab.id),
-                                onChanged: (value) => _toggleItem(vocab.id, value),
-                                activeColor: const Color(0xFF32445b), // primary
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                                side: const BorderSide(color: Color(0xFFc5c5d4)),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Checkbox(
+                                    value: _isSelected(item),
+                                    onChanged: (value) => _toggleItem(item, value),
+                                    activeColor: const Color(0xFF32445b), // primary
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                    side: const BorderSide(color: Color(0xFFc5c5d4)),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                vocab.kanji,
-                                                style: const TextStyle(
-                                                  fontFamily: 'Noto Sans JP',
-                                                  fontSize: 24,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Color(0xFF32445b), // primary
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                vocab.romaji,
-                                                style: const TextStyle(
-                                                  fontFamily: 'Inter',
-                                                  fontSize: 12,
-                                                  color: Color(0xFF454652), // on-surface-variant
-                                                ),
-                                              ),
-                                              Text(
-                                                vocab.meaningId,
-                                                style: const TextStyle(
-                                                  fontFamily: 'Inter',
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Color(0xFF191c1e), // on-surface
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                        Row(
                                           children: [
-                                            // Badge
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: isWord ? const Color(0xFFe6e8eb) : const Color(0xFF9cefe4),
-                                                borderRadius: BorderRadius.circular(4),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    mainText,
+                                                    style: TextStyle(
+                                                      fontFamily: 'Noto Sans JP',
+                                                      fontSize: item is Sentence ? 18 : 24,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: const Color(0xFF32445b), // primary
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    subText,
+                                                    style: const TextStyle(
+                                                      fontFamily: 'Inter',
+                                                      fontSize: 12,
+                                                      color: Color(0xFF454652), // on-surface-variant
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    meaningText,
+                                                    style: const TextStyle(
+                                                      fontFamily: 'Inter',
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: Color(0xFF191c1e), // on-surface
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                              child: Text(
-                                                isWord ? 'WORD' : 'PHRASE',
-                                                style: TextStyle(
-                                                  fontFamily: 'Inter',
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                  letterSpacing: 1.0,
-                                                  color: isWord ? const Color(0xFF454652) : const Color(0xFF0a6f66),
+                                            ),
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.end,
+                                              children: [
+                                                // Badge
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: badgeBg,
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    badgeText,
+                                                    style: TextStyle(
+                                                      fontFamily: 'Inter',
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.bold,
+                                                      letterSpacing: 1.0,
+                                                      color: badgeColor,
+                                                    ),
+                                                  ),
                                                 ),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 12),
-                                            const Text(
-                                              'DIHAPUS PADA',
-                                              style: TextStyle(
-                                                fontFamily: 'Inter',
-                                                fontSize: 8,
-                                                fontWeight: FontWeight.bold,
-                                                color: Color(0xFF757684),
-                                              ),
-                                            ),
-                                            Text(
-                                              _formatDate(vocab.deletedAt ?? vocab.createdAt),
-                                              style: const TextStyle(
-                                                fontFamily: 'Inter',
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w500,
-                                                color: Color(0xFF454652),
-                                              ),
+                                                const SizedBox(height: 12),
+                                                const Text(
+                                                  'DIHAPUS PADA',
+                                                  style: TextStyle(
+                                                    fontFamily: 'Inter',
+                                                    fontSize: 8,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Color(0xFF757684),
+                                                  ),
+                                                ),
+                                                Text(
+                                                  _formatDate(deletedDate),
+                                                  style: const TextStyle(
+                                                    fontFamily: 'Inter',
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Color(0xFF454652),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ],
                                         ),
                                       ],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                ],
-              ),
+                            ),
+                          );
+                        }).toList(),
+                    ],
+                  ),
 
-              // Contextual Action Bar (Fixed Bottom)
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOut,
-                bottom: _hasSelection ? 32 : -100, // Slide up/down
-                left: 24,
-                right: 24,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(999),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _hasSelection ? _processRestore : null,
-                          icon: const Icon(Icons.restore, size: 20),
-                          label: const Text('Restore', style: TextStyle(fontWeight: FontWeight.bold)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF32445b), // primary
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                            elevation: 0,
+                  // Contextual Action Bar (Fixed Bottom)
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOut,
+                    bottom: _hasSelection ? 32 : -100, // Slide up/down
+                    left: 24,
+                    right: 24,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(999),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
                           ),
-                        ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _hasSelection ? _processDeleteForever : null,
-                          icon: const Icon(Icons.delete_forever, size: 20),
-                          label: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFba1a1a), // error
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                            elevation: 0,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _hasSelection ? _processRestore : null,
+                              icon: const Icon(Icons.restore, size: 20),
+                              label: const Text('Restore', style: TextStyle(fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF32445b), // primary
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                                elevation: 0,
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _hasSelection ? _processDeleteForever : null,
+                              icon: const Icon(Icons.delete_forever, size: 20),
+                              label: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFba1a1a), // error
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                                elevation: 0,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            ],
+                ],
+              );
+            }
           );
         },
       ),

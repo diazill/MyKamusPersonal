@@ -12,6 +12,8 @@ class Sentence {
   final int srsLevel;
   final DateTime nextReview;
   final DateTime createdAt;
+  final bool isDeleted;
+  final DateTime? deletedAt;
 
   Sentence({
     required this.id,
@@ -25,6 +27,8 @@ class Sentence {
     required this.srsLevel,
     required this.nextReview,
     required this.createdAt,
+    this.isDeleted = false,
+    this.deletedAt,
   });
 
   factory Sentence.fromFirestore(DocumentSnapshot doc) {
@@ -41,11 +45,13 @@ class Sentence {
       srsLevel: data['srs_level'] ?? 0,
       nextReview: (data['next_review'] as Timestamp?)?.toDate() ?? DateTime.now(),
       createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      isDeleted: data['is_deleted'] ?? false,
+      deletedAt: (data['deleted_at'] as Timestamp?)?.toDate(),
     );
   }
 
   Map<String, dynamic> toFirestore() {
-    return {
+    final map = {
       'jp_text': jpText,
       'reading': reading,
       'meaning': meaning,
@@ -56,6 +62,11 @@ class Sentence {
       'srs_level': srsLevel,
       'next_review': Timestamp.fromDate(nextReview),
       'created_at': Timestamp.fromDate(createdAt),
+      'is_deleted': isDeleted,
     };
+    if (deletedAt != null) {
+      map['deleted_at'] = Timestamp.fromDate(deletedAt!);
+    }
+    return map;
   }
 }
