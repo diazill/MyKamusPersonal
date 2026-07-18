@@ -36,8 +36,8 @@
 
 ### Untuk Pengguna (End-User)
 Aplikasi ini dirancang untuk Android dan Windows.
-- **Android:** Buka tab **Releases** di GitHub ini, unduh file `.apk`, dan instal di perangkat Android Anda (pastikan opsi "Install from Unknown Sources" aktif).
-- **Windows:** Buka tab **Releases**, unduh file *Installer* `.exe`, dan jalankan untuk menginstal aplikasi di PC Anda.
+- **Android:** Buka halaman [Releases](https://github.com/diazill/MyKamusPersonal/releases) di GitHub ini, unduh file `.apk`, dan instal di perangkat Android Anda (pastikan opsi "Install from Unknown Sources" aktif).
+- **Windows:** Buka halaman [Releases](https://github.com/diazill/MyKamusPersonal/releases), unduh file *Installer* `.exe`, dan jalankan untuk menginstal aplikasi di PC Anda.
 
 ### Untuk Developer (Menjalankan dari Source Code)
 1. **Prasyarat:** Pastikan Anda telah menginstal [Flutter SDK](https://docs.flutter.dev/get-started/install) dan memiliki project Firebase yang sudah disiapkan.
