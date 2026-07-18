@@ -4,9 +4,13 @@ import '../models/sentence.dart';
 import '../services/firestore_service.dart';
 import '../models/notification_item.dart';
 import '../utils/snackbar_utils.dart';
+import '../services/ai_service.dart';
+import 'ai_correction_screen.dart';
 
 class TambahScreen extends StatefulWidget {
-  const TambahScreen({Key? key}) : super(key: key);
+  final Sentence? sentenceToEdit;
+  
+  const TambahScreen({Key? key, this.sentenceToEdit}) : super(key: key);
 
   @override
   State<TambahScreen> createState() => TambahScreenState();
@@ -35,6 +39,19 @@ class TambahScreenState extends State<TambahScreen> {
   final _sentNotesController = TextEditingController();
 
   final _firestoreService = FirestoreService();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.sentenceToEdit != null) {
+      _isWordTab = false; // Beralih ke tab kalimat
+      _sentJpController.text = widget.sentenceToEdit!.jpText;
+      _sentReadingController.text = widget.sentenceToEdit!.reading;
+      _sentRomajiController.text = widget.sentenceToEdit!.romaji;
+      _sentMeaningController.text = widget.sentenceToEdit!.meaning;
+      _sentNotesController.text = widget.sentenceToEdit!.notes;
+    }
+  }
 
   void resetInputs() {
     _kanjiController.clear();
@@ -176,8 +193,10 @@ class TambahScreenState extends State<TambahScreen> {
                   children: [
                     _buildHeader(colors),
                     const SizedBox(height: 24),
-                    _buildSegmentControl(colors),
-                    const SizedBox(height: 32),
+                    if (widget.sentenceToEdit == null) ...[
+                      _buildSegmentControl(colors),
+                      const SizedBox(height: 32),
+                    ],
                     
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 400),
@@ -230,7 +249,9 @@ class TambahScreenState extends State<TambahScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          _isWordTab ? 'Perluas Kosakata Anda' : 'Tambah Kalimat Baru\n(Detailed)',
+          widget.sentenceToEdit != null
+              ? 'Edit Kalimat\n(Koreksi Ulang)'
+              : (_isWordTab ? 'Perluas Kosakata Anda' : 'Tambah Kalimat Baru\n(Detailed)'),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: 'Manrope',
@@ -622,31 +643,52 @@ class TambahScreenState extends State<TambahScreen> {
 
     try {
       final sentence = Sentence(
-        id: '',
+        id: widget.sentenceToEdit?.id ?? '',
         jpText: _sentJpController.text,
         reading: _sentReadingController.text,
         romaji: _sentRomajiController.text,
         meaning: _sentMeaningController.text,
         notes: _sentNotesController.text,
-        tags: [], // Add actual tags later
-        vocabIds: [], // Word linking logic to be determined later
-        srsLevel: 0,
-        nextReview: DateTime.now(),
-        createdAt: DateTime.now(),
+        tags: widget.sentenceToEdit?.tags ?? [], // Keep existing tags or empty
+        vocabIds: widget.sentenceToEdit?.vocabIds ?? [], // Keep existing vocab links
+        srsLevel: widget.sentenceToEdit?.srsLevel ?? 0,
+        nextReview: widget.sentenceToEdit?.nextReview ?? DateTime.now(),
+        createdAt: widget.sentenceToEdit?.createdAt ?? DateTime.now(),
       );
 
-      await _firestoreService.addSentence(sentence);
+      final aiService = AIService();
+      final result = await aiService.correctJapaneseSentence(sentence);
 
       if (mounted) {
-        SnackbarUtils.showCustomAlert(context, isSuccess: true, message: 'Entri kalimat berhasil disimpan');
-        resetInputs();
+        setState(() => _isLoading = false); // Hentikan loading sebelum pindah screen
+        final success = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AICorrectionScreen(
+              originalSentence: sentence,
+              correctedJpText: result['corrected_jp']!,
+              correctedReading: result['corrected_reading']!,
+              correctedRomaji: result['corrected_romaji']!,
+              correctedMeaning: result['corrected_meaning']!,
+              explanation: result['explanation']!,
+              category: result['category']!,
+            ),
+          ),
+        );
+
+        if (success == true) {
+          if (widget.sentenceToEdit != null) {
+            Navigator.pop(context, true);
+          } else {
+            resetInputs();
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
-        SnackbarUtils.showCustomAlert(context, isSuccess: false, message: 'Gagal: $e');
+        setState(() => _isLoading = false);
+        SnackbarUtils.showCustomAlert(context, isSuccess: false, message: 'Gagal menghubungi AI: $e');
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 

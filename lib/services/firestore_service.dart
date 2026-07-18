@@ -1,7 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/vocabulary.dart';
 import '../models/sentence.dart';
+import '../models/ai_correction.dart';
 import '../models/notification_item.dart';
+import '../models/quiz_history.dart';
+import '../models/review_card.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -100,9 +103,24 @@ class FirestoreService {
 
   // SENTENCES
   
-  // Add new sentence
-  Future<void> addSentence(Sentence sentence) async {
-    await _db.collection('sentences').add(sentence.toFirestore());
+  // Add new sentence and return document ID
+  Future<String> addSentence(Sentence sentence) async {
+    final docRef = await _db.collection('sentences').add(sentence.toFirestore());
+    return docRef.id;
+  }
+
+  // Update existing sentence
+  Future<void> updateSentence(Sentence sentence) async {
+    await _db.collection('sentences').doc(sentence.id).update(sentence.toFirestore());
+  }
+
+  // Get single sentence by ID
+  Future<Sentence?> getSentenceById(String id) async {
+    final doc = await _db.collection('sentences').doc(id).get();
+    if (doc.exists) {
+      return Sentence.fromFirestore(doc);
+    }
+    return null;
   }
 
   // Get stream of active sentences
@@ -115,6 +133,22 @@ class FirestoreService {
             .map((doc) => Sentence.fromFirestore(doc))
             .where((s) => !s.isDeleted)
             .toList());
+  }
+
+  // Get stream of AI corrected sentences
+  Stream<List<AiCorrection>> getAiHistoryStream() {
+    return _db
+        .collection('ai_corrections')
+        .orderBy('created_at', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => AiCorrection.fromFirestore(doc))
+            .toList());
+  }
+
+  // Add new AI correction history
+  Future<void> addAiCorrection(AiCorrection correction) async {
+    await _db.collection('ai_corrections').add(correction.toFirestore());
   }
 
   // Get stream of DELETED sentences (Trash)
@@ -188,5 +222,104 @@ class FirestoreService {
       print('Error checking for updates: $e');
     }
     return null;
+  }
+
+  // --- SRS & QUIZ METHODS ---
+
+  // Update SRS level and next review date for a card
+  Future<void> updateCardSrs(String id, String type, int srsLevel, DateTime nextReview) async {
+    final collection = type == 'vocabulary' ? 'vocabularies' : 'sentences';
+    await _db.collection(collection).doc(id).update({
+      'srs_level': srsLevel,
+      'next_review': Timestamp.fromDate(nextReview),
+    });
+  }
+
+  // Save quiz history
+  Future<void> saveQuizHistory(QuizHistory history) async {
+    await _db.collection('quiz_histories').add(history.toFirestore());
+  }
+
+  // Get due cards for SRS (combined vocabularies and sentences)
+  Future<List<ReviewCard>> getDueCards(int limit) async {
+    try {
+      final now = DateTime.now();
+      
+      // Fetch active vocabularies
+      final vocabSnapshot = await _db
+          .collection('vocabularies')
+          .where('is_deleted', isEqualTo: false)
+          .get();
+          
+      // Fetch active sentences
+      final sentenceSnapshot = await _db
+          .collection('sentences')
+          .where('is_deleted', isEqualTo: false)
+          .get();
+          
+      final List<Vocabulary> activeVocabs = vocabSnapshot.docs.map((doc) => Vocabulary.fromFirestore(doc)).toList();
+      final List<Sentence> activeSentences = sentenceSnapshot.docs.map((doc) => Sentence.fromFirestore(doc)).toList();
+      
+      List<ReviewCard> dueCards = [];
+      
+      // Filter and map vocabularies
+      for (var v in activeVocabs) {
+        if (v.nextReview.isBefore(now) || v.nextReview.isAtSameMomentAs(now)) {
+          String backText = v.kanji.isNotEmpty ? v.kanji : v.reading;
+          String readingText = v.kanji.isNotEmpty ? v.reading : '';
+          
+          dueCards.add(ReviewCard(
+            id: v.id,
+            frontText: v.meaningId,
+            backText: backText,
+            reading: readingText,
+            romaji: v.romaji,
+            meaning: v.meaningId,
+            notes: v.catatan,
+            srsLevel: v.srsLevel,
+            nextReview: v.nextReview,
+            tags: [v.category],
+            type: 'vocabulary',
+          ));
+        }
+      }
+      
+      // Filter and map sentences
+      for (var s in activeSentences) {
+        if (s.nextReview.isBefore(now) || s.nextReview.isAtSameMomentAs(now)) {
+          dueCards.add(ReviewCard(
+            id: s.id,
+            frontText: s.meaning,
+            backText: s.jpText,
+            reading: s.reading,
+            romaji: s.romaji,
+            meaning: s.meaning,
+            notes: s.notes,
+            srsLevel: s.srsLevel,
+            nextReview: s.nextReview,
+            tags: s.tags.isNotEmpty ? s.tags : ['KALIMAT'],
+            type: 'sentence',
+          ));
+        }
+      }
+      
+      dueCards.sort((a, b) => a.nextReview.compareTo(b.nextReview));
+      
+      return dueCards.take(limit).toList();
+    } catch (e) {
+      print('Error getting due cards: $e');
+      return [];
+    }
+  }
+
+  // Get stream of quiz histories
+  Stream<List<QuizHistory>> getQuizHistoriesStream() {
+    return _db
+        .collection('quiz_histories')
+        .orderBy('created_at', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => QuizHistory.fromFirestore(doc))
+            .toList());
   }
 }

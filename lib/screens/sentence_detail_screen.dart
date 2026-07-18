@@ -3,6 +3,9 @@ import 'package:intl/intl.dart';
 import '../models/sentence.dart';
 import '../services/firestore_service.dart';
 import '../utils/snackbar_utils.dart';
+import '../services/ai_service.dart';
+import 'tambah_screen.dart';
+import 'ai_correction_screen.dart';
 
 class SentenceDetailScreen extends StatefulWidget {
   final Sentence sentence;
@@ -18,6 +21,7 @@ class SentenceDetailScreen extends StatefulWidget {
 
 class _SentenceDetailScreenState extends State<SentenceDetailScreen> {
   final _firestoreService = FirestoreService();
+  bool _isCorrecting = false;
 
   Future<void> _deleteSentence() async {
     final colors = Theme.of(context).colorScheme;
@@ -144,7 +148,6 @@ class _SentenceDetailScreenState extends State<SentenceDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     final sentence = widget.sentence;
 
     String primaryTag = sentence.tags.isNotEmpty ? sentence.tags.first : 'UMUM';
@@ -184,10 +187,66 @@ class _SentenceDetailScreenState extends State<SentenceDetailScreen> {
                   ),
                   Row(
                     children: [
+                      if (_isCorrecting)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF006A62)),
+                          ),
+                        )
+                      else
+                        IconButton(
+                          icon: const Icon(Icons.auto_awesome, color: Color(0xFF006A62)),
+                          tooltip: 'Koreksi Ulang AI',
+                          onPressed: () async {
+                            setState(() => _isCorrecting = true);
+                            try {
+                              final aiService = AIService();
+                              final result = await aiService.correctJapaneseSentence(widget.sentence);
+                              if (mounted) {
+                                final success = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => AICorrectionScreen(
+                                      originalSentence: widget.sentence,
+                                      correctedJpText: result['corrected_jp']!,
+                                      correctedReading: result['corrected_reading']!,
+                                      correctedRomaji: result['corrected_romaji']!,
+                                      correctedMeaning: result['corrected_meaning']!,
+                                      explanation: result['explanation']!,
+                                      category: result['category']!,
+                                    ),
+                                  ),
+                                );
+                                if (success == true && mounted) {
+                                  Navigator.pop(context); // Go back so list refreshes
+                                }
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                SnackbarUtils.showCustomAlert(context, isSuccess: false, message: 'Gagal mengoreksi: $e');
+                              }
+                            } finally {
+                              if (mounted) setState(() => _isCorrecting = false);
+                            }
+                          },
+                        ),
                       IconButton(
                         icon: const Icon(Icons.edit, color: Color(0xFF006A62)),
-                        onPressed: () {
-                          // TODO: Edit functionality
+                        tooltip: 'Edit Manual',
+                        onPressed: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => TambahScreen(sentenceToEdit: widget.sentence),
+                            ),
+                          );
+                          if (result == true && mounted) {
+                            // Pop back to list so it refreshes with stream
+                            Navigator.pop(context);
+                          }
                         },
                       ),
                       IconButton(
@@ -293,7 +352,81 @@ class _SentenceDetailScreenState extends State<SentenceDetailScreen> {
                 
                 const SizedBox(height: 32),
 
-                // Translation Card
+                // AI Correction Info (if available)
+                if (sentence.hasAiCorrection) ...[
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF9CEFE4).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFF006A62).withValues(alpha: 0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.auto_awesome, color: Color(0xFF006A62), size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Hasil Koreksi AI',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF006A62),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        if (sentence.originalJpText != null) ...[
+                          const Text(
+                            'Kalimat Asli Anda:',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 12,
+                              color: Color(0xFF454652),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            sentence.originalJpText!,
+                            style: const TextStyle(
+                              fontFamily: 'Noto Sans JP',
+                              fontSize: 16,
+                              color: Color(0xFF7C2500),
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        if (sentence.aiExplanation != null) ...[
+                          const Text(
+                            'Penjelasan AI:',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 12,
+                              color: Color(0xFF454652),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            sentence.aiExplanation!,
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 14,
+                              color: Color(0xFF191C1E),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                ],
+
+                // Grid layout for SRS and Notes
                 Container(
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
@@ -505,6 +638,112 @@ class _SentenceDetailScreenState extends State<SentenceDetailScreen> {
                           ),
                         ),
 
+                        // AI Correction Box
+                        if (sentence.hasAiCorrection) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            width: constraints.maxWidth,
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFFFFF),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFF006A62).withValues(alpha: 0.3)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.02),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'RIWAYAT KOREKSI AI',
+                                      style: TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 2.0,
+                                        color: Color(0xFF006A62),
+                                      ),
+                                    ),
+                                    if (sentence.aiCategory != null && sentence.aiCategory!.isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF006A62).withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          sentence.aiCategory!,
+                                          style: const TextStyle(
+                                            fontFamily: 'Inter',
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF006A62),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                if (sentence.originalJpText != null) ...[
+                                  const Text(
+                                    'Kalimat Asli:',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF757684),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    sentence.originalJpText!,
+                                    style: const TextStyle(
+                                      fontFamily: 'Noto Sans JP',
+                                      fontSize: 18,
+                                      color: Color(0xFF454652),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                ],
+                                if (sentence.aiExplanation != null) ...[
+                                  const Divider(height: 1, color: Color(0xFFE0E3E6)),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'Penjelasan:',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF757684),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    sentence.aiExplanation!,
+                                    style: const TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 14,
+                                      color: Color(0xFF191C1E),
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 16),
+
+
                         // Time Metadata
                         SizedBox(
                           width: constraints.maxWidth,
@@ -609,60 +848,6 @@ class _SentenceDetailScreenState extends State<SentenceDetailScreen> {
                   },
                 ),
 
-                const SizedBox(height: 32),
-
-                // Visual Context Anchor (Placeholder)
-                Container(
-                  height: 192, // h-48
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    image: const DecorationImage(
-                      image: NetworkImage('https://lh3.googleusercontent.com/aida-public/AB6AXuDy5pVs2UGzExCVGXe_Sinruvpv5kD-dwhQyrAgYeATGvqZOrV3iKkATiXUzk3yhKni4LoiPX_GXlBqKBGbDttYULIjDFpx4A5E-YkKE3jDlPySYuVAcz1jIe3LUokE7DTCpGPzm8xOx9Ik-rAPRFtwUHxkm8t3rpL1Qoszy1H2osAmkh4-7xsnIN6K6w2xA99oSwJKDPuUPiIOfJ7gLCj2yhnUA2pXElLXMEf6LrqaG8Mk3GBvabeI10lDRwBuTMbeslv7k9hzx1tf'),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [
-                          const Color(0xFF32445B).withOpacity(0.6), // primary/60
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                    padding: const EdgeInsets.only(left: 24, bottom: 16),
-                    alignment: Alignment.bottomLeft,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          'VISUAL CONTEXT',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 3.0,
-                            color: Colors.white70,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Urban Hanoi Life',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
               ],
             ),
           ),

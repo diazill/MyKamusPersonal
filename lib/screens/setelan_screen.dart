@@ -5,9 +5,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'trash_screen.dart';
+import 'ai_history_screen.dart';
 import '../models/vocabulary.dart';
 import '../services/firestore_service.dart';
 import '../utils/snackbar_utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SetelanScreen extends StatefulWidget {
   const SetelanScreen({Key? key}) : super(key: key);
@@ -26,11 +28,43 @@ class _SetelanScreenState extends State<SetelanScreen> {
   int _currentImport = 0;
   final FirestoreService _firestoreService = FirestoreService();
   String _appVersion = 'Loading...';
+  
+  // AI Config
+  final TextEditingController _apiKeyController = TextEditingController();
+  bool _isSavingKey = false;
 
   @override
   void initState() {
     super.initState();
     _loadAppVersion();
+    _loadApiKey();
+  }
+
+  Future<void> _loadApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _apiKeyController.text = prefs.getString('gemini_api_key') ?? '';
+    });
+  }
+
+  Future<void> _saveApiKey() async {
+    setState(() => _isSavingKey = true);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('gemini_api_key', _apiKeyController.text.trim());
+    setState(() => _isSavingKey = false);
+    if (mounted) {
+      SnackbarUtils.showCustomAlert(
+        context,
+        message: 'API Key berhasil disimpan!',
+        isSuccess: true,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _apiKeyController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadAppVersion() async {
@@ -198,6 +232,93 @@ class _SetelanScreenState extends State<SetelanScreen> {
                         ],
                       );
               },
+            ),
+            const SizedBox(height: 40),
+
+            // Konfigurasi AI Section
+            _buildSectionHeader(Icons.auto_awesome, 'Konfigurasi AI', colors),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colors.primary.withValues(alpha: 0.1)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Gemini API Key',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Dapatkan API Key gratis di Google AI Studio untuk menggunakan fitur koreksi kalimat AI.',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _apiKeyController,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            hintText: 'Masukkan API Key Anda...',
+                            filled: true,
+                            fillColor: colors.surface,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          style: const TextStyle(fontFamily: 'Inter', fontSize: 14),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: _isSavingKey ? null : _saveApiKey,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colors.primary,
+                          foregroundColor: colors.onPrimary,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: _isSavingKey 
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  const Divider(color: Color(0xFFC5C5D4)), // outline_variant
+                  const SizedBox(height: 16),
+                  _buildSettingsRow(
+                    context: context,
+                    title: 'Riwayat Koreksi AI',
+                    subtitle: 'Lihat semua perbaikan kalimat oleh AI sebelumnya',
+                    trailing: const Icon(Icons.chevron_right, size: 24),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AIHistoryScreen()),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 40),
 
@@ -553,45 +674,53 @@ class _SetelanScreenState extends State<SetelanScreen> {
     required String title,
     required String subtitle,
     required Widget trailing,
+    VoidCallback? onTap,
   }) {
     final colors = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLowest,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: colors.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 12,
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: onTap == null ? colors.surfaceContainerLowest : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
           ),
-          const SizedBox(width: 16),
-          trailing,
-        ],
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: colors.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              trailing,
+            ],
+          ),
+        ),
       ),
     );
   }

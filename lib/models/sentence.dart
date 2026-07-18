@@ -14,6 +14,10 @@ class Sentence {
   final DateTime createdAt;
   final bool isDeleted;
   final DateTime? deletedAt;
+  final String? originalJpText;
+  final String? aiExplanation;
+  final String? aiCategory;
+  final bool hasAiCorrection;
 
   Sentence({
     required this.id,
@@ -29,6 +33,10 @@ class Sentence {
     required this.createdAt,
     this.isDeleted = false,
     this.deletedAt,
+    this.originalJpText,
+    this.aiExplanation,
+    this.aiCategory,
+    this.hasAiCorrection = false,
   });
 
   factory Sentence.fromFirestore(DocumentSnapshot doc) {
@@ -47,11 +55,15 @@ class Sentence {
       createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
       isDeleted: data['is_deleted'] ?? false,
       deletedAt: (data['deleted_at'] as Timestamp?)?.toDate(),
+      originalJpText: data['original_jp_text'],
+      aiExplanation: data['ai_explanation'],
+      aiCategory: data['ai_category'],
+      hasAiCorrection: data['has_ai_correction'] ?? false,
     );
   }
 
   Map<String, dynamic> toFirestore() {
-    final map = {
+    final Map<String, dynamic> map = {
       'jp_text': jpText,
       'reading': reading,
       'meaning': meaning,
@@ -63,10 +75,15 @@ class Sentence {
       'next_review': Timestamp.fromDate(nextReview),
       'created_at': Timestamp.fromDate(createdAt),
       'is_deleted': isDeleted,
+      'has_ai_correction': hasAiCorrection,
     };
     if (deletedAt != null) {
       map['deleted_at'] = Timestamp.fromDate(deletedAt!);
     }
+    if (originalJpText != null) map['original_jp_text'] = originalJpText;
+    if (aiExplanation != null) map['ai_explanation'] = aiExplanation;
+    if (aiCategory != null) map['ai_category'] = aiCategory;
+    
     return map;
   }
 }

@@ -20,12 +20,17 @@
   - `google_fonts` (Tipografi modern)
 
 ## ✨ Fitur Utama
-- **📊 Beranda (Dashboard):** Menampilkan statistik dinamis dan ringkasan pembelajaran secara real-time.
-- **📚 Pustaka (Library):** Daftar lengkap kata dan kalimat yang telah disimpan, mendukung fitur pencarian dan filter.
+- **📊 Beranda (Dashboard):** Menampilkan statistik dinamis, riwayat kuis, review harian, dan ringkasan pembelajaran secara real-time. Dilengkapi pencarian cerdas terintegrasi (Debounce & Floating Suggestion Overlay).
+- **📚 Pustaka (Library):** Daftar lengkap Kosakata dan Kalimat yang telah disimpan. Mendukung fitur pencarian instan dan penyaringan data (Filter).
 - **➕ Tambah Data (Multi-tab):** Form input komprehensif dengan antarmuka tab untuk memisahkan input **Kata** dan **Kalimat**. Mendukung isian detail: *Teks Jepang (Kanji/Kana), Cara Baca, Arti, Romaji, Catatan Tambahan, Tag, Level SRS, dan Jadwal Review Selanjutnya*.
+- **🎓 Belajar (Study Modes):** 
+  - **Sistem Pengulangan Berkala (SRS):** Mengingat kosakata lebih efektif dengan jadwal *review* otomatis yang disesuaikan tingkat pemahaman Anda.
+  - **Kuis AI (AI Quiz):** Latihan menebak kosakata dengan *AI-generated quiz* menggunakan antarmuka *Flip Card* interaktif. Skor dan riwayat statistik kuis direkam secara *real-time*.
+  - **Koreksi Kalimat AI:** Evaluasi dan koreksi otomatis tata bahasa kalimat bahasa Jepang buatan Anda, lengkap dengan riwayat hasil koreksi (AI History).
+- **🗑️ Trash (Tong Sampah):** Sistem *soft-delete* yang memungkinkan Anda mengembalikan (*restore*) data Kosakata / Kalimat yang tidak sengaja terhapus.
 - **📥 Import Data:** Memungkinkan pengguna untuk mengimpor daftar kosakata secara massal melalui file JSON dengan indikator progres yang responsif.
-- **⚙️ Setelan (Settings):** Pengaturan aplikasi dan manajemen data.
-- **🔔 Notifikasi Terpusat:** Sistem notifikasi in-app (Snackbar) yang konsisten dan elegan di seluruh aplikasi.
+- **⚙️ Setelan (Settings):** Pengaturan tema aplikasi, bahasa, dan manajemen database secara menyeluruh.
+- **🔔 Notifikasi Terpusat:** Sistem notifikasi in-app (Snackbar) dan panel notifikasi yang konsisten.
 
 ## 🚀 Cara Download & Instalasi
 

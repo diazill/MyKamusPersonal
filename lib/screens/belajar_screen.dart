@@ -1,297 +1,234 @@
 import 'package:flutter/material.dart';
 import '../utils/snackbar_utils.dart';
+import '../services/firestore_service.dart';
+import 'srs_session_screen.dart';
+import 'quiz_loading_screen.dart';
 
-class BelajarScreen extends StatefulWidget {
+class BelajarScreen extends StatelessWidget {
   const BelajarScreen({Key? key}) : super(key: key);
 
-  @override
-  State<BelajarScreen> createState() => _BelajarScreenState();
-}
+  void _startSRS(BuildContext context) async {
+    final firestore = FirestoreService();
+    SnackbarUtils.showCustomAlert(context, isSuccess: true, message: 'Memuat flashcard...');
+    final dueCards = await firestore.getDueCards(10); // Default limit 10
+    
+    if (!context.mounted) return;
+    
+    if (dueCards.isEmpty) {
+      SnackbarUtils.showCustomAlert(context, isSuccess: false, message: 'Hebat! Tidak ada kartu yang perlu direview hari ini.');
+      return;
+    }
 
-class _BelajarScreenState extends State<BelajarScreen> {
-  // Mock State
-  final List<String> _categories = ['Semua', 'Verba', 'Sifat', 'Benda', 'Kalimat'];
-  String _selectedCategory = 'Semua';
-  String _selectedMode = 'srs'; // 'srs' or 'random'
-  int _selectedCount = 20;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    return Scaffold(
-      backgroundColor: colors.surface,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(72),
-        child: Container(
-          color: const Color(0xFFf0f4f8),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1280),
-                child: Row(
-                  children: [
-                    const Text('🃏', style: TextStyle(fontSize: 24)),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Mode Belajar',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: colors.primary,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-            // Pilih Kategori
-            Text(
-              'Pilih Kategori:',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colors.primary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 12,
-              children: _categories.map((category) {
-                final isSelected = _selectedCategory == category;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedCategory = category;
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isSelected ? colors.primary : colors.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: isSelected ? colors.primary : Colors.transparent,
-                      ),
-                    ),
-                    child: Text(
-                      isSelected ? '✓ $category' : category,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: isSelected ? colors.onPrimary : colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 32),
-
-            // Mode
-            Text(
-              'Mode:',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colors.primary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildModeOption(
-              context,
-              id: 'srs',
-              title: 'SRS Review',
-              subtitle: '12 kartu menunggu direview hari ini',
-              icon: Icons.access_time_filled,
-              iconColor: colors.tertiary,
-            ),
-            const SizedBox(height: 12),
-            _buildModeOption(
-              context,
-              id: 'random',
-              title: 'Random Practice',
-              subtitle: 'Belajar kartu secara acak untuk latihan ekstra',
-              icon: Icons.shuffle,
-              iconColor: colors.secondary,
-            ),
-            const SizedBox(height: 32),
-
-            // Jumlah Kartu
-            Text(
-              'Jumlah Kartu:',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colors.primary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 10, label: Text('10')),
-                ButtonSegment(value: 20, label: Text('20')),
-                ButtonSegment(value: 50, label: Text('50')),
-                ButtonSegment(value: 999, label: Text('Semua')),
-              ],
-              selected: {_selectedCount},
-              onSelectionChanged: (Set<int> newSelection) {
-                setState(() {
-                  _selectedCount = newSelection.first;
-                });
-              },
-              style: SegmentedButton.styleFrom(
-                selectedForegroundColor: colors.onPrimary,
-                selectedBackgroundColor: colors.primary,
-                backgroundColor: colors.surfaceContainerHighest,
-              ),
-            ),
-            const SizedBox(height: 48),
-
-            // Start Button
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(999),
-                gradient: LinearGradient(
-                  colors: [colors.primary, colors.tertiary],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: colors.tertiary.withOpacity(0.3),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    // Navigate to Flashcard Session Screen (TODO)
-                    SnackbarUtils.showCustomAlert(context, isSuccess: true, message: 'Memulai sesi flashcard...');
-                  },
-                  borderRadius: BorderRadius.circular(999),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Mulai Belajar',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: colors.onPrimary,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text('🚀', style: TextStyle(fontSize: 18)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SRSSessionScreen(dueCards: dueCards),
       ),
     );
   }
 
-  Widget _buildModeOption(
-    BuildContext context, {
-    required String id,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color iconColor,
-  }) {
-    final colors = Theme.of(context).colorScheme;
-    final isSelected = _selectedMode == id;
+  void _startQuizAI(BuildContext context) async {
+    final firestore = FirestoreService();
+    SnackbarUtils.showCustomAlert(context, isSuccess: true, message: 'Menyiapkan kuis AI...');
+    
+    // For quiz, get active sentences and shuffle them. Limit to 10.
+    final allSnapshot = await firestore.getSentencesStream().first;
+    if (!context.mounted) return;
+    
+    if (allSnapshot.isEmpty) {
+      SnackbarUtils.showCustomAlert(context, isSuccess: false, message: 'Anda belum memiliki kosakata/kalimat untuk kuis.');
+      return;
+    }
+    
+    final list = List.of(allSnapshot)..shuffle();
+    final quizSentences = list.take(10).toList(); // Target harian 10 soal
 
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedMode = id;
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected ? colors.primaryContainer.withOpacity(0.3) : colors.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? colors.primary : colors.surfaceContainerHighest,
-            width: isSelected ? 2 : 1,
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QuizLoadingScreen(sentences: quizSentences),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFf7f9fc),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFf7f9fc),
+        elevation: 0,
+        centerTitle: true,
+        title: const Text(
+          'Zen Scholar',
+          style: TextStyle(
+            fontFamily: 'Manrope',
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF32445b),
+            fontSize: 18,
           ),
         ),
-        child: Row(
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: CircleAvatar(
+              radius: 16,
+              backgroundColor: const Color(0xFFe6e8eb),
+              child: Icon(Icons.person, color: const Color(0xFF32445b).withOpacity(0.5)),
+            ),
+          )
+        ],
+      ),
+      body: SafeArea(
+        child: Stack(
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isSelected ? colors.primaryContainer : colors.surfaceContainerHighest,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                color: isSelected ? colors.primary : colors.onSurfaceVariant,
+            // Subtle Background Deco
+            const Center(
+              child: Opacity(
+                opacity: 0.1,
+                child: Text(
+                  '学',
+                  style: TextStyle(
+                    fontFamily: 'Noto Sans JP',
+                    fontSize: 200,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFe0e3e6),
+                  ),
+                ),
               ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: colors.primary,
-                    ),
+            
+            // Main Content
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Pilih Mode Belajar',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF32445b),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Pilih jalanmu menuju kemahiran.',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 14,
+                          color: Color(0xFF454652),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 48),
+                      
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _ModeCard(
+                              title: 'Metode SRS',
+                              icon: Icons.style,
+                              iconColor: const Color(0xFF32445b),
+                              onTap: () => _startSRS(context),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: _ModeCard(
+                              title: 'Kuis AI',
+                              icon: Icons.smart_toy,
+                              iconColor: const Color(0xFF006a62),
+                              onTap: () => _startQuizAI(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-            Radio<String>(
-              value: id,
-              groupValue: _selectedMode,
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedMode = value;
-                  });
-                }
-              },
-              activeColor: colors.primary,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ModeCard extends StatefulWidget {
+  final String title;
+  final IconData icon;
+  final Color iconColor;
+  final VoidCallback onTap;
+
+  const _ModeCard({
+    required this.title,
+    required this.icon,
+    required this.iconColor,
+    required this.onTap,
+  });
+
+  @override
+  State<_ModeCard> createState() => _ModeCardState();
+}
+
+class _ModeCardState extends State<_ModeCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: _isHovered ? const Color(0xFF32445b) : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFc5c5d4).withOpacity(0.15)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 24,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  widget.icon,
+                  size: 48,
+                  color: _isHovered ? Colors.white : widget.iconColor,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  widget.title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _isHovered ? Colors.white : const Color(0xFF191c1e),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

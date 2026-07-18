@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../widgets/recently_added_card.dart';
 import '../services/firestore_service.dart';
@@ -7,6 +8,8 @@ import '../models/sentence.dart';
 import '../models/notification_item.dart';
 import 'detail_screen.dart';
 import 'sentence_detail_screen.dart';
+import '../models/quiz_history.dart';
+import 'quiz_history_detail_screen.dart';
 
 class BerandaScreen extends StatefulWidget {
   const BerandaScreen({Key? key}) : super(key: key);
@@ -18,15 +21,60 @@ class BerandaScreen extends StatefulWidget {
 class _BerandaScreenState extends State<BerandaScreen> {
   final _firestoreService = FirestoreService();
   late final FocusNode _searchFocusNode;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  Timer? _debounce;
+  late final Stream<List<Vocabulary>> _vocabulariesStream;
+  late final Stream<List<Sentence>> _sentencesStream;
+  late final Stream<List<QuizHistory>> _quizHistoriesStream;
+  late final Stream<List<NotificationItem>> _notificationsStream;
+  List<Vocabulary>? _allVocabularies;
+  List<Sentence>? _allSentences;
+  StreamSubscription? _vocabSub;
+  StreamSubscription? _sentenceSub;
 
   @override
   void initState() {
     super.initState();
+    _vocabulariesStream = _firestoreService
+        .getVocabulariesStream()
+        .asBroadcastStream();
+    _vocabSub = _vocabulariesStream.listen((data) {
+      if (mounted) setState(() => _allVocabularies = data);
+    });
+    _sentencesStream = _firestoreService
+        .getSentencesStream()
+        .asBroadcastStream();
+    _sentenceSub = _sentencesStream.listen((data) {
+      if (mounted) setState(() => _allSentences = data);
+    });
+    _quizHistoriesStream = _firestoreService
+        .getQuizHistoriesStream()
+        .asBroadcastStream();
+    _notificationsStream = _firestoreService
+        .getNotificationsStream()
+        .asBroadcastStream();
     _searchFocusNode = FocusNode();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _searchQuery = _searchController.text.toLowerCase();
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _vocabSub?.cancel();
+    _sentenceSub?.cancel();
+    _debounce?.cancel();
+    _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
   }
@@ -44,15 +92,33 @@ class _BerandaScreenState extends State<BerandaScreen> {
 
   String _getIndonesianDate() {
     final now = DateTime.now();
-    const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-    const months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    const days = [
+      'Senin',
+      'Selasa',
+      'Rabu',
+      'Kamis',
+      'Jumat',
+      'Sabtu',
+      'Minggu',
     ];
-    
+    const months = [
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
+    ];
+
     final dayName = days[now.weekday - 1];
     final monthName = months[now.month - 1];
-    
+
     return '$dayName, ${now.day} $monthName ${now.year}';
   }
 
@@ -80,31 +146,38 @@ class _BerandaScreenState extends State<BerandaScreen> {
                       children: [
                         Text(
                           'My Kamus Personal',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: colors.primary,
-                            letterSpacing: -0.5,
-                          ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: colors.primary,
+                                letterSpacing: -0.5,
+                              ),
                         ),
                       ],
                     ),
                     Row(
                       children: [
                         StreamBuilder<List<NotificationItem>>(
-                          stream: _firestoreService.getNotificationsStream(),
+                          stream: _notificationsStream,
                           builder: (context, snapshot) {
                             int unreadCount = 0;
                             if (snapshot.hasData) {
-                              unreadCount = snapshot.data!.where((n) => !n.isRead).length;
+                              unreadCount = snapshot.data!
+                                  .where((n) => !n.isRead)
+                                  .length;
                             }
                             return InkWell(
-                              onTap: () => _showNotificationsDialog(context, colors),
+                              onTap: () =>
+                                  _showNotificationsDialog(context, colors),
                               borderRadius: BorderRadius.circular(99),
                               child: Padding(
                                 padding: const EdgeInsets.all(8.0),
                                 child: Stack(
                                   clipBehavior: Clip.none,
                                   children: [
-                                    Icon(Icons.notifications, color: colors.primary),
+                                    Icon(
+                                      Icons.notifications,
+                                      color: colors.primary,
+                                    ),
                                     if (unreadCount > 0)
                                       Positioned(
                                         right: 0,
@@ -115,7 +188,10 @@ class _BerandaScreenState extends State<BerandaScreen> {
                                           decoration: BoxDecoration(
                                             color: colors.tertiary,
                                             shape: BoxShape.circle,
-                                            border: Border.all(color: const Color(0xFFf0f4f8), width: 1.5),
+                                            border: Border.all(
+                                              color: const Color(0xFFf0f4f8),
+                                              width: 1.5,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -149,76 +225,109 @@ class _BerandaScreenState extends State<BerandaScreen> {
         ),
       ),
       body: Focus(
-        autofocus: true, // Swallows any route-return autofocus so TextField doesn't get it
+        autofocus:
+            true, // Swallows any route-return autofocus so TextField doesn't get it
         child: GestureDetector(
           onTap: () => FocusScope.of(context).unfocus(),
           child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          24,
-          24,
-          24,
-          120,
-        ), // Bottom padding for FAB and Nav
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1280),
-            child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isDesktop = constraints.maxWidth > 800;
+            padding: const EdgeInsets.fromLTRB(
+              24,
+              24,
+              24,
+              120,
+            ), // Bottom padding for FAB and Nav
+            child: Center(
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1280),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isDesktop = constraints.maxWidth > 800;
 
-            if (isDesktop) {
-              // Desktop / Wide Tablet Layout (2 Columns)
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildTopHeader(colors),
-                  const SizedBox(height: 32),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Left Column: Stats & Review (flex: 5)
-                      Expanded(
-                        flex: 5,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildStatsSection(colors),
-                            const SizedBox(height: 32),
-                            _buildReviewSection(colors),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 48),
-                      // Right Column: Recently Added (flex: 7)
-                      Expanded(
-                        flex: 7,
-                        child: _buildRecentlyAddedSection(colors),
-                      ),
-                    ],
+                        if (isDesktop) {
+                          // Desktop / Wide Tablet Layout (2 Columns)
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildTopHeader(colors),
+                              const SizedBox(height: 32),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Left Column: Stats & Review (flex: 5)
+                                  Expanded(
+                                    flex: 5,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        _buildStatsSection(colors),
+                                        const SizedBox(height: 32),
+                                        _buildReviewSection(colors),
+                                        const SizedBox(height: 32),
+                                        _buildQuizStatsSection(colors),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 48),
+                                  // Right Column: Recently Added (flex: 7)
+                                  Expanded(
+                                    flex: 7,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        _buildRecentlyAddedSection(colors),
+                                        const SizedBox(height: 32),
+                                        _buildQuizHistorySection(colors),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        } else {
+                          // Mobile Layout (Single Column)
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildTopHeader(colors),
+                              const SizedBox(height: 32),
+                              _buildStatsSection(colors),
+                              const SizedBox(height: 32),
+                              _buildReviewSection(colors),
+                              const SizedBox(height: 32),
+                              _buildQuizStatsSection(colors),
+                              const SizedBox(height: 32),
+                              _buildRecentlyAddedSection(colors),
+                              const SizedBox(height: 32),
+                              _buildQuizHistorySection(colors),
+                            ],
+                          );
+                        }
+                      },
+                    ),
                   ),
+                  if (_searchQuery.isNotEmpty)
+                    Positioned(
+                      top: 145,
+                      left: 0,
+                      right: 0,
+                      child: Material(
+                        elevation: 16,
+                        borderRadius: BorderRadius.circular(16),
+                        color: Colors.transparent,
+                        child: _buildSearchResults(colors),
+                      ),
+                    ),
                 ],
-              );
-            } else {
-              // Mobile Layout (Single Column)
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildTopHeader(colors),
-                  const SizedBox(height: 32),
-                  _buildStatsSection(colors),
-                  const SizedBox(height: 32),
-                  _buildReviewSection(colors),
-                  const SizedBox(height: 32),
-                  _buildRecentlyAddedSection(colors),
-                ],
-              );
-            }
-          },
+              ),
+            ),
+          ),
         ),
-      ),
-      ),
-      ),
-      ),
       ),
     );
   }
@@ -260,12 +369,13 @@ class _BerandaScreenState extends State<BerandaScreen> {
             ],
           ),
           child: TextField(
+            controller: _searchController,
             focusNode: _searchFocusNode,
             autofocus: false,
             decoration: InputDecoration(
               hintText: 'Cari kata...',
               hintStyle: TextStyle(
-                color: colors.outline.withOpacity(0.6),
+                color: colors.outline.withValues(alpha: 0.6),
                 fontWeight: FontWeight.w500,
               ),
               filled: true,
@@ -274,6 +384,20 @@ class _BerandaScreenState extends State<BerandaScreen> {
                 padding: const EdgeInsets.only(right: 12, left: 8),
                 child: Icon(Icons.search, color: colors.outline),
               ),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.cancel,
+                          color: colors.outline.withValues(alpha: 0.6),
+                        ),
+                        onPressed: () {
+                          _searchController.clear();
+                        },
+                      ),
+                    )
+                  : null,
               prefixIconConstraints: const BoxConstraints(minWidth: 40),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(999),
@@ -285,15 +409,177 @@ class _BerandaScreenState extends State<BerandaScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(999),
-                borderSide: BorderSide(
-                  color: colors.primary.withOpacity(0.5),
-                ),
+                borderSide: BorderSide(color: colors.primary.withOpacity(0.5)),
               ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 20),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 0,
+                horizontal: 20,
+              ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSearchResults(ColorScheme colors) {
+    if (_allVocabularies == null || _allSentences == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    final vocabularies = _allVocabularies!;
+    final sentences = _allSentences!;
+    final query = _searchQuery.toLowerCase();
+
+    final filteredVocabs = vocabularies
+        .where((v) {
+          return v.kanji.toLowerCase().contains(query) ||
+              v.reading.toLowerCase().contains(query) ||
+              v.romaji.toLowerCase().contains(query) ||
+              v.meaningId.toLowerCase().contains(query) ||
+              v.meaningEn.toLowerCase().contains(query);
+        })
+        .take(5)
+        .toList();
+
+    final filteredSentences = sentences
+        .where((s) {
+          return s.jpText.toLowerCase().contains(query) ||
+              s.reading.toLowerCase().contains(query) ||
+              s.romaji.toLowerCase().contains(query) ||
+              s.meaning.toLowerCase().contains(query);
+        })
+        .take(5)
+        .toList();
+
+    final combinedCount = filteredVocabs.length + filteredSentences.length;
+
+    if (combinedCount == 0) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Text(
+          'Tidak ada hasil yang cocok.',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            ...filteredVocabs
+                .take(5)
+                .map(
+                  (v) => ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFf2f4f7),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.translate,
+                        color: Color(0xFF32445b),
+                        size: 20,
+                      ),
+                    ),
+                    title: Text(
+                      v.kanji.isNotEmpty ? v.kanji : v.reading,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Noto Sans JP',
+                      ),
+                    ),
+                    subtitle: Text(
+                      v.meaningId,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontFamily: 'Inter'),
+                    ),
+                    onTap: () {
+                      FocusScope.of(context).unfocus();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => DetailScreen(vocab: v),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            if (filteredVocabs.isNotEmpty &&
+                filteredSentences.isNotEmpty &&
+                filteredVocabs.length < 5)
+              const Divider(height: 1, indent: 16, endIndent: 16),
+            ...filteredSentences
+                .take(
+                  5 - filteredVocabs.length < 0 ? 0 : 5 - filteredVocabs.length,
+                )
+                .map(
+                  (s) => ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFf2f4f7),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.format_quote,
+                        color: Color(0xFF32445b),
+                        size: 20,
+                      ),
+                    ),
+                    title: Text(
+                      s.jpText.isNotEmpty ? s.jpText : s.reading,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Noto Sans JP',
+                      ),
+                    ),
+                    subtitle: Text(
+                      s.meaning,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontFamily: 'Inter'),
+                    ),
+                    onTap: () {
+                      FocusScope.of(context).unfocus();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              SentenceDetailScreen(sentence: s),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -325,7 +611,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
         ),
         const SizedBox(height: 16),
         StreamBuilder<List<Vocabulary>>(
-          stream: _firestoreService.getVocabulariesStream(),
+          stream: _vocabulariesStream,
           builder: (context, snapshot) {
             int total = 0;
             int verbaCount = 0;
@@ -336,20 +622,33 @@ class _BerandaScreenState extends State<BerandaScreen> {
             if (snapshot.hasData) {
               final vocabularies = snapshot.data!;
               total = vocabularies.length;
-              verbaCount = vocabularies.where((v) => v.category.toLowerCase().contains('kerja') || v.category.toLowerCase().contains('verba')).length;
-              bendaCount = vocabularies.where((v) => v.category.toLowerCase().contains('benda')).length;
-              sifatCount = vocabularies.where((v) => v.category.toLowerCase().contains('sifat')).length;
-              
+              verbaCount = vocabularies
+                  .where(
+                    (v) =>
+                        v.category.toLowerCase().contains('kerja') ||
+                        v.category.toLowerCase().contains('verba'),
+                  )
+                  .length;
+              bendaCount = vocabularies
+                  .where((v) => v.category.toLowerCase().contains('benda'))
+                  .length;
+              sifatCount = vocabularies
+                  .where((v) => v.category.toLowerCase().contains('sifat'))
+                  .length;
+
               final today = DateTime.now();
-              todayAddedCount = vocabularies.where((v) => 
-                  v.createdAt.year == today.year && 
-                  v.createdAt.month == today.month && 
-                  v.createdAt.day == today.day
-              ).length;
+              todayAddedCount = vocabularies
+                  .where(
+                    (v) =>
+                        v.createdAt.year == today.year &&
+                        v.createdAt.month == today.month &&
+                        v.createdAt.day == today.day,
+                  )
+                  .length;
             }
 
             return StreamBuilder<List<Sentence>>(
-              stream: _firestoreService.getSentencesStream(),
+              stream: _sentencesStream,
               builder: (context, sentenceSnapshot) {
                 int totalSentences = 0;
                 if (sentenceSnapshot.hasData) {
@@ -362,39 +661,57 @@ class _BerandaScreenState extends State<BerandaScreen> {
                       children: [
                         Expanded(
                           child: _buildTotalCard(
-                            'KOSAKATA', 
-                            total.toString(), 
-                            Icons.bar_chart, 
-                            const Color(0xFF2C3E50), 
-                            colors
+                            'KOSAKATA',
+                            total.toString(),
+                            Icons.bar_chart,
+                            const Color(0xFF2C3E50),
+                            colors,
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: _buildTotalCard(
-                            'KALIMAT', 
-                            totalSentences.toString(), 
-                            Icons.format_quote_rounded, 
+                            'KALIMAT',
+                            totalSentences.toString(),
+                            Icons.format_quote_rounded,
                             const Color(0xFFC2410C),
-                            colors
+                            colors,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _buildSmallStatCard(verbaCount.toString(), 'Verba', Icons.directions_run_rounded, const Color(0xFF2C3E50), colors),
-                    const SizedBox(width: 12),
-                    _buildSmallStatCard(bendaCount.toString(), 'Benda', Icons.category_rounded, const Color(0xFF2C3E50), colors),
-                    const SizedBox(width: 12),
-                    _buildSmallStatCard(sifatCount.toString(), 'Sifat', Icons.palette_rounded, const Color(0xFF16A085), colors),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildTargetHarianCard(todayAddedCount, colors),
-                const SizedBox(height: 16),
-                _buildProgresKeseluruhanCard(total, colors),
+                    Row(
+                      children: [
+                        _buildSmallStatCard(
+                          verbaCount.toString(),
+                          'Verba',
+                          Icons.directions_run_rounded,
+                          const Color(0xFF2C3E50),
+                          colors,
+                        ),
+                        const SizedBox(width: 12),
+                        _buildSmallStatCard(
+                          bendaCount.toString(),
+                          'Benda',
+                          Icons.category_rounded,
+                          const Color(0xFF2C3E50),
+                          colors,
+                        ),
+                        const SizedBox(width: 12),
+                        _buildSmallStatCard(
+                          sifatCount.toString(),
+                          'Sifat',
+                          Icons.palette_rounded,
+                          const Color(0xFF16A085),
+                          colors,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTargetHarianCard(todayAddedCount, colors),
+                    const SizedBox(height: 16),
+                    _buildProgresKeseluruhanCard(total, colors),
                   ],
                 );
               },
@@ -426,11 +743,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
             bottom: -40,
             child: Opacity(
               opacity: 0.1,
-              child: Icon(
-                Icons.menu_book,
-                size: 160,
-                color: colors.onPrimary,
-              ),
+              child: Icon(Icons.menu_book, size: 160, color: colors.onPrimary),
             ),
           ),
           Padding(
@@ -497,7 +810,9 @@ class _BerandaScreenState extends State<BerandaScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: colors.onPrimary,
                     foregroundColor: colors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 20), // Taller button
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 20,
+                    ), // Taller button
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(999),
                     ),
@@ -509,13 +824,12 @@ class _BerandaScreenState extends State<BerandaScreen> {
                     children: [
                       Text(
                         'Mulai Review',
-                        style: Theme.of(context).textTheme.titleLarge
-                            ?.copyWith(
-                              color: colors.primary,
-                              fontSize: 16, // Larger text
-                              fontWeight: FontWeight.w800, // Bolder
-                              letterSpacing: 0.5,
-                            ),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: colors.primary,
+                          fontSize: 16, // Larger text
+                          fontWeight: FontWeight.w800, // Bolder
+                          letterSpacing: 0.5,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       const Text('🚀', style: TextStyle(fontSize: 16)),
@@ -565,21 +879,26 @@ class _BerandaScreenState extends State<BerandaScreen> {
         const SizedBox(height: 16),
 
         StreamBuilder<List<Vocabulary>>(
-          stream: _firestoreService.getVocabulariesStream(),
+          stream: _vocabulariesStream,
           builder: (context, vocabSnapshot) {
             return StreamBuilder<List<Sentence>>(
-              stream: _firestoreService.getSentencesStream(),
+              stream: _sentencesStream,
               builder: (context, sentenceSnapshot) {
-                if (vocabSnapshot.connectionState == ConnectionState.waiting && sentenceSnapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: Padding(
-                    padding: EdgeInsets.all(24.0),
-                    child: CircularProgressIndicator(),
-                  ));
+                if (vocabSnapshot.connectionState == ConnectionState.waiting &&
+                    sentenceSnapshot.connectionState ==
+                        ConnectionState.waiting) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
                 }
-                
+
                 List<dynamic> allItems = [];
                 if (vocabSnapshot.hasData) allItems.addAll(vocabSnapshot.data!);
-                if (sentenceSnapshot.hasData) allItems.addAll(sentenceSnapshot.data!);
+                if (sentenceSnapshot.hasData)
+                  allItems.addAll(sentenceSnapshot.data!);
 
                 if (allItems.isEmpty) {
                   return Padding(
@@ -594,14 +913,18 @@ class _BerandaScreenState extends State<BerandaScreen> {
                 }
 
                 // Sort by newest
-                allItems.sort((a, b) => (b.createdAt as DateTime).compareTo(a.createdAt as DateTime));
+                allItems.sort(
+                  (a, b) => (b.createdAt as DateTime).compareTo(
+                    a.createdAt as DateTime,
+                  ),
+                );
 
                 return Column(
                   children: allItems.take(5).map((item) {
                     Color catColor = colors.primary;
                     Color catBg = colors.primaryContainer;
                     String displayCat = 'UMUM';
-                    
+
                     String kanjiChar = '?';
                     String word = '';
                     String furigana = '';
@@ -611,7 +934,8 @@ class _BerandaScreenState extends State<BerandaScreen> {
                     if (item is Vocabulary) {
                       displayCat = item.category.toUpperCase();
                       final catLower = item.category.toLowerCase();
-                      if (catLower.contains('kerja') || catLower.contains('verba')) {
+                      if (catLower.contains('kerja') ||
+                          catLower.contains('verba')) {
                         catColor = const Color(0xFF138973);
                         catBg = const Color(0xFF90F4D0);
                         displayCat = 'KATA KERJA';
@@ -624,10 +948,14 @@ class _BerandaScreenState extends State<BerandaScreen> {
                         catBg = const Color(0xFFD3EEFC);
                         displayCat = 'KATA BENDA';
                       }
-                      
-                      kanjiChar = item.kanji.isNotEmpty ? item.kanji[0] : (item.reading.isNotEmpty ? item.reading[0] : '?');
+
+                      kanjiChar = item.kanji.isNotEmpty
+                          ? item.kanji[0]
+                          : (item.reading.isNotEmpty ? item.reading[0] : '?');
                       word = item.kanji.isNotEmpty ? item.kanji : item.reading;
-                      furigana = item.kanji.isNotEmpty ? item.reading : item.romaji;
+                      furigana = item.kanji.isNotEmpty
+                          ? item.reading
+                          : item.romaji;
                       meaning = item.meaningId;
                       onTap = () {
                         FocusScope.of(context).unfocus();
@@ -639,20 +967,29 @@ class _BerandaScreenState extends State<BerandaScreen> {
                         );
                       };
                     } else if (item is Sentence) {
-                      catColor = const Color(0xFF00504A); // on-secondary-fixed-variant
+                      catColor = const Color(
+                        0xFF00504A,
+                      ); // on-secondary-fixed-variant
                       catBg = const Color(0xFF83D5CA); // secondary-fixed-dim
                       displayCat = 'KALIMAT';
-                      
-                      kanjiChar = item.jpText.isNotEmpty ? item.jpText[0] : (item.reading.isNotEmpty ? item.reading[0] : '?');
-                      word = item.jpText.isNotEmpty ? item.jpText : item.reading;
-                      furigana = item.jpText.isNotEmpty ? item.reading : item.romaji;
+
+                      kanjiChar = item.jpText.isNotEmpty
+                          ? item.jpText[0]
+                          : (item.reading.isNotEmpty ? item.reading[0] : '?');
+                      word = item.jpText.isNotEmpty
+                          ? item.jpText
+                          : item.reading;
+                      furigana = item.jpText.isNotEmpty
+                          ? item.reading
+                          : item.romaji;
                       meaning = item.meaning;
                       onTap = () {
                         FocusScope.of(context).unfocus();
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => SentenceDetailScreen(sentence: item),
+                            builder: (context) =>
+                                SentenceDetailScreen(sentence: item),
                           ),
                         );
                       };
@@ -681,7 +1018,13 @@ class _BerandaScreenState extends State<BerandaScreen> {
     );
   }
 
-  Widget _buildTotalCard(String label, String total, IconData icon, Color iconBg, ColorScheme colors) {
+  Widget _buildTotalCard(
+    String label,
+    String total,
+    IconData icon,
+    Color iconBg,
+    ColorScheme colors,
+  ) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -719,7 +1062,9 @@ class _BerandaScreenState extends State<BerandaScreen> {
                     fontFamily: 'Manrope',
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1B2C41), // Deep contrasting text color
+                    color: const Color(
+                      0xFF1B2C41,
+                    ), // Deep contrasting text color
                   ),
                 ),
               ],
@@ -730,7 +1075,13 @@ class _BerandaScreenState extends State<BerandaScreen> {
     );
   }
 
-  Widget _buildSmallStatCard(String value, String label, IconData icon, Color iconColor, ColorScheme colors) {
+  Widget _buildSmallStatCard(
+    String value,
+    String label,
+    IconData icon,
+    Color iconColor,
+    ColorScheme colors,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
@@ -772,8 +1123,10 @@ class _BerandaScreenState extends State<BerandaScreen> {
     int target = 3;
     double progress = current / target;
     if (progress > 1.0) progress = 1.0;
-    
-    String messageText = current >= target ? '“Target tercapai, luar biasa!”' : '“Satu kata lagi untuk hari ini!”';
+
+    String messageText = current >= target
+        ? '“Target tercapai, luar biasa!”'
+        : '“Satu kata lagi untuk hari ini!”';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -893,7 +1246,8 @@ class _BerandaScreenState extends State<BerandaScreen> {
               ),
               RichText(
                 text: TextSpan(
-                  text: '${_formatNumber(currentTotal)} / ${_formatNumber(targetTotal)} ',
+                  text:
+                      '${_formatNumber(currentTotal)} / ${_formatNumber(targetTotal)} ',
                   style: TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: 14,
@@ -940,6 +1294,301 @@ class _BerandaScreenState extends State<BerandaScreen> {
     );
   }
 
+  Widget _buildQuizStatsSection(ColorScheme colors) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              'Statistik Kuis AI',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: colors.primary,
+                fontSize: 20,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        StreamBuilder<List<QuizHistory>>(
+          stream: _quizHistoriesStream,
+          builder: (context, snapshot) {
+            int totalQuiz = 0;
+            int totalBenar = 0;
+            int totalSalah = 0;
+
+            if (snapshot.hasData) {
+              final histories = snapshot.data!;
+              totalQuiz = histories.length;
+              for (var h in histories) {
+                int correct = h.questions
+                    .where((q) => q.userOption == q.correctOption)
+                    .length;
+                totalBenar += correct;
+                totalSalah += (h.totalQuestions - correct);
+              }
+            }
+
+            return Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFFeef2f6),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'KUIS',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: colors.outline,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        Text(
+                          '$totalQuiz',
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF191c1e),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 40,
+                    color: colors.outlineVariant.withValues(alpha: 0.3),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'BENAR',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF006a62),
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          Text(
+                            '$totalBenar',
+                            style: const TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF006a62),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 40,
+                    color: colors.outlineVariant.withValues(alpha: 0.3),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'SALAH',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFba1a1a),
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          Text(
+                            '$totalSalah',
+                            style: const TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFFba1a1a),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuizHistorySection(ColorScheme colors) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Riwayat Kuis AI',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: colors.primary,
+                fontSize: 20,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        StreamBuilder<List<QuizHistory>>(
+          stream: _quizHistoriesStream,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24.0),
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24.0),
+                child: Center(
+                  child: Text(
+                    'Belum ada kuis yang dikerjakan.',
+                    style: TextStyle(color: colors.outline),
+                  ),
+                ),
+              );
+            }
+
+            final histories = snapshot.data!.take(5).toList();
+
+            return Column(
+              children: histories.map((history) {
+                int correct = history.questions
+                    .where((q) => q.userOption == q.correctOption)
+                    .length;
+                double percentage = history.totalQuestions == 0
+                    ? 0
+                    : (correct / history.totalQuestions) * 100;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              QuizHistoryDetailScreen(history: history),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFf2f4f7)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFd3e4ff),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.psychology,
+                              color: Color(0xFF001c38),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Kuis AI: Kosakata',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF191c1e),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  DateFormat(
+                                    'dd MMM yyyy, HH:mm',
+                                  ).format(history.createdAt),
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 12,
+                                    color: Color(0xFF757684),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '${percentage.round()}%',
+                                style: const TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF006a62),
+                                ),
+                              ),
+                              Text(
+                                '$correct/${history.totalQuestions}',
+                                style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  color: Color(0xFF757684),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   String _formatNumber(int number) {
     String str = number.toString();
     String result = '';
@@ -963,7 +1612,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
       transitionDuration: const Duration(milliseconds: 200),
       pageBuilder: (context, animation, secondaryAnimation) {
         return StreamBuilder<List<NotificationItem>>(
-          stream: _firestoreService.getNotificationsStream(),
+          stream: _notificationsStream,
           builder: (context, snapshot) {
             final notifications = snapshot.data ?? [];
             final unreadCount = notifications.where((n) => !n.isRead).length;
@@ -994,7 +1643,10 @@ class _BerandaScreenState extends State<BerandaScreen> {
                         children: [
                           // Header
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 16,
+                            ),
                             color: colors.surfaceContainerLow.withOpacity(0.5),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1010,9 +1662,13 @@ class _BerandaScreenState extends State<BerandaScreen> {
                                 ),
                                 if (unreadCount > 0)
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: colors.primaryContainer.withOpacity(0.2),
+                                      color: colors.primaryContainer
+                                          .withOpacity(0.2),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
@@ -1045,23 +1701,28 @@ class _BerandaScreenState extends State<BerandaScreen> {
                                     child: Column(
                                       children: notifications.map((notif) {
                                         IconData iconData = Icons.notifications;
-                                        Color iconBg = colors.surfaceContainerHighest;
-                                        Color iconColor = colors.onSurfaceVariant;
+                                        Color iconBg =
+                                            colors.surfaceContainerHighest;
+                                        Color iconColor =
+                                            colors.onSurfaceVariant;
                                         Color borderColor = Colors.transparent;
 
                                         if (notif.type == 'target') {
                                           iconData = Icons.emoji_events;
                                           iconBg = colors.secondaryContainer;
-                                          iconColor = colors.onSecondaryContainer;
+                                          iconColor =
+                                              colors.onSecondaryContainer;
                                           borderColor = colors.secondary;
                                         } else if (notif.type == 'update') {
                                           iconData = Icons.system_update;
-                                          iconBg = colors.primaryContainer.withOpacity(0.2);
+                                          iconBg = colors.primaryContainer
+                                              .withOpacity(0.2);
                                           iconColor = colors.onPrimaryContainer;
                                         } else if (notif.type == 'reminder') {
                                           iconData = Icons.history_edu;
                                           iconBg = colors.tertiaryContainer;
-                                          iconColor = colors.onTertiaryContainer;
+                                          iconColor =
+                                              colors.onTertiaryContainer;
                                           borderColor = colors.tertiary;
                                         }
 
@@ -1077,10 +1738,15 @@ class _BerandaScreenState extends State<BerandaScreen> {
                                           colors: colors,
                                           onTap: () async {
                                             if (!notif.isRead) {
-                                              await _firestoreService.markNotificationAsRead(notif.id);
+                                              await _firestoreService
+                                                  .markNotificationAsRead(
+                                                    notif.id,
+                                                  );
                                             }
-                                            Navigator.of(context).pop(); // close dropdown
-                                            
+                                            Navigator.of(
+                                              context,
+                                            ).pop(); // close dropdown
+
                                             _showNotificationDetailOverlay(
                                               context,
                                               colors,
@@ -1089,9 +1755,16 @@ class _BerandaScreenState extends State<BerandaScreen> {
                                               iconBg: iconBg,
                                               title: notif.title,
                                               body: notif.description,
-                                              time: _formatDate(notif.createdAt),
-                                              buttonText: notif.type == 'update' ? 'Update Sekarang' : 'Tutup',
-                                              onButtonPressed: notif.type == 'update' ? () {} : null,
+                                              time: _formatDate(
+                                                notif.createdAt,
+                                              ),
+                                              buttonText: notif.type == 'update'
+                                                  ? 'Update Sekarang'
+                                                  : 'Tutup',
+                                              onButtonPressed:
+                                                  notif.type == 'update'
+                                                  ? () {}
+                                                  : null,
                                             );
                                           },
                                         );
@@ -1108,7 +1781,9 @@ class _BerandaScreenState extends State<BerandaScreen> {
                               borderRadius: BorderRadius.circular(99),
                               child: Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
                                 decoration: BoxDecoration(
                                   color: colors.primary.withOpacity(0.05),
                                   borderRadius: BorderRadius.circular(99),
@@ -1140,10 +1815,13 @@ class _BerandaScreenState extends State<BerandaScreen> {
         return FadeTransition(
           opacity: anim1,
           child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, -0.05),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic)),
+            position:
+                Tween<Offset>(
+                  begin: const Offset(0, -0.05),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic),
+                ),
             child: child,
           ),
         );
@@ -1152,7 +1830,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
   }
 
   void _showNotificationDetailOverlay(
-    BuildContext context, 
+    BuildContext context,
     ColorScheme colors, {
     required IconData icon,
     required Color iconColor,
@@ -1178,11 +1856,15 @@ class _BerandaScreenState extends State<BerandaScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Container(
                     width: double.infinity,
-                    constraints: const BoxConstraints(maxWidth: 384), // max-w-sm
+                    constraints: const BoxConstraints(
+                      maxWidth: 384,
+                    ), // max-w-sm
                     decoration: BoxDecoration(
                       color: colors.surfaceContainerLowest,
                       borderRadius: BorderRadius.circular(24), // rounded-xl
-                      border: Border.all(color: colors.outlineVariant.withOpacity(0.2)),
+                      border: Border.all(
+                        color: colors.outlineVariant.withOpacity(0.2),
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.2),
@@ -1314,7 +1996,9 @@ class _BerandaScreenState extends State<BerandaScreen> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: isUnread ? colors.surfaceContainerLowest : colors.surfaceContainerLowest.withOpacity(0.4),
+          color: isUnread
+              ? colors.surfaceContainerLowest
+              : colors.surfaceContainerLowest.withOpacity(0.4),
           border: Border(left: BorderSide(color: borderColor, width: 4)),
         ),
         child: Row(
@@ -1323,10 +2007,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
             Container(
               width: 40,
               height: 40,
-              decoration: BoxDecoration(
-                color: iconBg,
-                shape: BoxShape.circle,
-              ),
+              decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
               child: Icon(icon, color: iconColor, size: 20),
             ),
             const SizedBox(width: 16),
@@ -1340,7 +2021,9 @@ class _BerandaScreenState extends State<BerandaScreen> {
                       fontFamily: 'Inter',
                       fontSize: 14,
                       fontWeight: isUnread ? FontWeight.bold : FontWeight.w500,
-                      color: isUnread ? colors.onSurface : colors.onSurface.withOpacity(0.8),
+                      color: isUnread
+                          ? colors.onSurface
+                          : colors.onSurface.withOpacity(0.8),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -1351,7 +2034,9 @@ class _BerandaScreenState extends State<BerandaScreen> {
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 12,
-                      color: isUnread ? colors.onSurfaceVariant : colors.onSurfaceVariant.withOpacity(0.8),
+                      color: isUnread
+                          ? colors.onSurfaceVariant
+                          : colors.onSurfaceVariant.withOpacity(0.8),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1375,9 +2060,11 @@ class _BerandaScreenState extends State<BerandaScreen> {
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final difference = now.difference(date);
-    
+
     if (difference.inMinutes < 60) {
-      return difference.inMinutes <= 1 ? 'Baru saja' : '${difference.inMinutes} menit yang lalu';
+      return difference.inMinutes <= 1
+          ? 'Baru saja'
+          : '${difference.inMinutes} menit yang lalu';
     } else if (difference.inHours < 24) {
       return '${difference.inHours} jam yang lalu';
     } else if (difference.inDays == 1) {
@@ -1387,4 +2074,3 @@ class _BerandaScreenState extends State<BerandaScreen> {
     }
   }
 }
-
