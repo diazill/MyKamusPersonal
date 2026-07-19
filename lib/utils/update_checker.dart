@@ -5,13 +5,20 @@ import '../services/firestore_service.dart';
 import '../widgets/update_dialog.dart';
 
 class UpdateChecker {
-  static Future<void> checkForUpdate(BuildContext context) async {
+  static Future<void> checkForUpdate(BuildContext context, {bool manualCheck = false}) async {
     try {
       final firestoreService = FirestoreService();
       
       // 1. Get latest version info from Firestore
       final updateInfo = await firestoreService.checkUpdate();
-      if (updateInfo == null) return;
+      if (updateInfo == null) {
+        if (manualCheck && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Anda sudah menggunakan versi terbaru.')),
+          );
+        }
+        return;
+      }
       
       final String latestVersion = updateInfo['latest_version'] ?? '0.0.0';
       final String apkUrl = updateInfo['apk_url'] ?? '';
@@ -46,9 +53,20 @@ class UpdateChecker {
             ),
           );
         }
+      } else {
+        if (manualCheck && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Anda sudah menggunakan versi terbaru.')),
+          );
+        }
       }
     } catch (e) {
       print('UpdateChecker error: $e');
+      if (manualCheck && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memeriksa pembaruan: $e')),
+        );
+      }
     }
   }
 

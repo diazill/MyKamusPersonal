@@ -10,6 +10,7 @@ import '../models/vocabulary.dart';
 import '../services/firestore_service.dart';
 import '../utils/snackbar_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/update_checker.dart';
 
 class SetelanScreen extends StatefulWidget {
   const SetelanScreen({Key? key}) : super(key: key);
@@ -621,8 +622,14 @@ class _SetelanScreenState extends State<SetelanScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  _buildLinkRow('Lisensi', colors),
-                  _buildLinkRow('Syarat & Ketentuan', colors),
+                  _buildLinkRow('Cek Pembaruan', colors, onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Memeriksa pembaruan...')),
+                    );
+                    UpdateChecker.checkForUpdate(context, manualCheck: true);
+                  }),
+                  _buildLinkRow('Lisensi', colors, onTap: () => _showLicenseDialog(context)),
+                  _buildLinkRow('Syarat & Ketentuan', colors, onTap: () => _showTermsDialog(context)),
                   const SizedBox(height: 40),
                   Text(
                     'HANDCRAFTED WITH FOCUS BY THE ZEN TEAM',
@@ -647,6 +654,60 @@ class _SetelanScreenState extends State<SetelanScreen> {
   ],
 );
 }
+
+  void _showLicenseDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Lisensi'),
+        content: const SingleChildScrollView(
+          child: Text(
+            'Aplikasi myKamusPersonal dilisensikan di bawah MIT License.\n\n'
+            'Anda diizinkan untuk menggunakan, menyalin, memodifikasi, '
+            'menggabungkan, menerbitkan, mendistribusikan, mensublisensikan, '
+            'dan/atau menjual salinan perangkat lunak, dengan syarat pemberitahuan '
+            'hak cipta dan pemberitahuan izin ini disertakan dalam semua salinan.\n\n'
+            'PERANGKAT LUNAK INI DISEDIAKAN "SEBAGAIMANA ADANYA", TANPA JAMINAN APAPUN.',
+            textAlign: TextAlign.justify,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTermsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Syarat & Ketentuan'),
+        content: const SingleChildScrollView(
+          child: Text(
+            '1. Penggunaan Aplikasi\n'
+            'Aplikasi ini dirancang untuk membantu Anda belajar bahasa. Anda bertanggung jawab penuh atas data yang Anda masukkan.\n\n'
+            '2. Privasi Data\n'
+            'Semua data Anda disimpan di dalam database cloud Firebase yang dienkripsi dan terikat ke akun Anda.\n\n'
+            '3. Layanan AI\n'
+            'Fitur kecerdasan buatan dalam aplikasi ini (seperti kuis dan koreksi) disediakan melalui API eksternal. Kami tidak menjamin keakuratan 100% dari hasil AI tersebut.\n\n'
+            '4. Perubahan Syarat\n'
+            'Kami berhak mengubah syarat dan ketentuan ini kapan saja dengan atau tanpa pemberitahuan.',
+            textAlign: TextAlign.justify,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Mengerti'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildSectionHeader(IconData icon, String title, ColorScheme colors) {
     return Padding(
@@ -854,9 +915,9 @@ class _SetelanScreenState extends State<SetelanScreen> {
     );
   }
 
-  Widget _buildLinkRow(String title, ColorScheme colors) {
+  Widget _buildLinkRow(String title, ColorScheme colors, {VoidCallback? onTap}) {
     return InkWell(
-      onTap: () {},
+      onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.all(16),
