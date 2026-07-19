@@ -10,6 +10,9 @@ import 'detail_screen.dart';
 import 'sentence_detail_screen.dart';
 import '../models/quiz_history.dart';
 import 'quiz_history_detail_screen.dart';
+import '../models/review_card.dart';
+import 'srs_session_screen.dart';
+import '../utils/snackbar_utils.dart';
 
 class BerandaScreen extends StatefulWidget {
   const BerandaScreen({Key? key}) : super(key: key);
@@ -723,6 +726,53 @@ class _BerandaScreenState extends State<BerandaScreen> {
   }
 
   Widget _buildReviewSection(ColorScheme colors) {
+    final now = DateTime.now();
+    List<ReviewCard> dueCards = [];
+    
+    for (var v in _allVocabularies ?? <Vocabulary>[]) {
+      if (!v.isDeleted && v.nextReview.isBefore(now)) {
+        dueCards.add(ReviewCard(
+          id: v.id,
+          frontText: v.kanji.isNotEmpty ? v.kanji : (v.reading.isNotEmpty ? v.reading : v.romaji),
+          backText: v.meaningId,
+          reading: v.reading,
+          romaji: v.romaji,
+          meaning: v.meaningId,
+          notes: v.catatan,
+          srsLevel: v.srsLevel,
+          nextReview: v.nextReview,
+          tags: [v.category, v.subCategory],
+          type: 'vocabulary',
+        ));
+      }
+    }
+    
+    for (var s in _allSentences ?? <Sentence>[]) {
+      if (!s.isDeleted && s.nextReview.isBefore(now)) {
+        dueCards.add(ReviewCard(
+          id: s.id,
+          frontText: s.jpText,
+          backText: s.meaning,
+          reading: s.reading,
+          romaji: s.romaji,
+          meaning: s.meaning,
+          notes: s.notes,
+          srsLevel: s.srsLevel,
+          nextReview: s.nextReview,
+          tags: s.tags,
+          type: 'sentence',
+        ));
+      }
+    }
+    
+    final int totalDue = dueCards.length;
+    
+    // Batasi maksimum 10 kartu per sesi secara acak
+    if (dueCards.length > 10) {
+      dueCards.shuffle();
+      dueCards = dueCards.take(10).toList();
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: colors.primary,
@@ -784,9 +834,9 @@ class _BerandaScreenState extends State<BerandaScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  '🔥 12 kartu menunggu',
-                  style: TextStyle(
+                Text(
+                  '🔥 $totalDue kartu menunggu',
+                  style: const TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: 28, // Much larger font
                     fontWeight: FontWeight.w800,
@@ -806,7 +856,18 @@ class _BerandaScreenState extends State<BerandaScreen> {
                 ),
                 const SizedBox(height: 32),
                 ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    if (totalDue == 0) {
+                      SnackbarUtils.showCustomAlert(context, isSuccess: true, message: 'Hebat! Tidak ada kartu yang perlu direview hari ini.');
+                      return;
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SRSSessionScreen(dueCards: dueCards),
+                      ),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: colors.onPrimary,
                     foregroundColor: colors.primary,

@@ -86,28 +86,45 @@ Balas HANYA dalam format JSON dengan struktur berikut (tanpa blok markdown ```js
       apiKey: apiKey,
     );
 
+    // Shuffle and take max 10 items to prevent context overload and improve randomness
+    final shuffledList = List<Sentence>.from(sentences)..shuffle();
+    final selectedSentences = shuffledList.take(10).toList();
+
     // Prepare vocab list for prompt
-    final vocabList = sentences.map((s) => '- Jepang: ${s.jpText} | Romaji: ${s.romaji} | Arti: ${s.meaning}').join('\n');
+    final vocabList = selectedSentences.map((s) => '- Jepang: ${s.jpText} | Romaji: ${s.romaji} | Arti: ${s.meaning}').join('\n');
 
     final prompt = '''
-Anda adalah guru bahasa Jepang interaktif. Saya memiliki daftar ${sentences.length} kosakata/kalimat berikut:
+Anda adalah pembuat kuis bahasa Jepang yang sangat kreatif. Saya memiliki daftar ${selectedSentences.length} kosakata/kalimat acak berikut:
 $vocabList
 
-Buatlah kuis pilihan ganda berjumlah ${sentences.length} soal untuk menguji pemahaman saya terhadap daftar kosakata tersebut.
-Tipe soal bisa berupa: terjemahan bahasa Jepang ke Indonesia, Indonesia ke Jepang, tebak partikel, tebak romaji, atau bacaan kanji.
-Setiap soal harus memiliki 4 opsi jawaban (A, B, C, D) dan HANYA SATU opsi yang benar.
+Buatlah kuis pilihan ganda berjumlah persis ${selectedSentences.length} soal dari daftar di atas.
+SANGAT PENTING: Anda WAJIB memberikan VARIASI tipe soal yang BERBEDA-BEDA secara merata. JANGAN ulangi tipe soal yang sama lebih dari 2 kali berturut-turut. Pastikan setidaknya 6 dari 7 tipe soal di bawah ini muncul di dalam kuis.
+Gunakan variasi tipe soal berikut secara acak:
+1. Tebak arti dari Jepang ke Indonesia.
+2. Terjemahkan dari Indonesia ke Jepang.
+3. Tebak cara baca (Romaji) dari huruf Jepang (Hiragana/Katakana/Kanji).
+4. Tebak huruf Jepang dari Romaji.
+5. Tebak bagian rumpang (partikel atau kosakata yang hilang). Gunakan garis bawah yang panjang (______) untuk rumpang.
+6. Tebak Hiragana dari sebuah Kanji (jika ada Kanji).
+7. Tebak huruf dasar (Hiragana/Katakana) tunggal secara spesifik (contoh: "Huruf Katakana untuk suku kata 'ma' adalah?", atau "Huruf hiragana あ dibaca apa?").
+
+ATURAN TEKS & TANDA BACA (SANGAT PENTING):
+- JANGAN PERNAH menggunakan tag HTML (seperti <u>, <b>, <i>, dll). Aplikasi tidak mendukung tag HTML! Jika ingin menyorot kata, gunakan tanda kutip "kata", kurung siku [kata], atau garis bawah biasa.
+- PENTING UNTUK PEMULA (N5): Setiap kali Anda memunculkan huruf Kanji pada pertanyaan ATAU opsi jawaban, Anda WAJIB menyertakan cara bacanya (furigana/hiragana) di dalam kurung setelah huruf Kanji tersebut. 
+Contoh: 私(わたし)はスーパーで抹茶(まっちゃ)味(あじ)のミルクを買(か)っています。
+Setiap soal harus memiliki 4 opsi jawaban (A, B, C, D) yang masuk akal sebagai pengecoh, dan HANYA SATU opsi yang benar.
 
 Berikan format balasan HANYA dalam JSON strict (tanpa markdown ```json).
 Format JSON harus berupa Array of Object. Setiap object merepresentasikan 1 soal dengan struktur berikut:
 [
   {
-    "question": "Apa arti dari 食べる?",
-    "options": ["Tidur", "Makan", "Minum", "Berjalan"],
-    "correct_option": "Makan",
-    "explanation": "食べる (taberu) artinya adalah Makan."
+    "question": "Pilih romaji yang tepat untuk 食べる:",
+    "options": ["taberu", "nomu", "neru", "iku"],
+    "correct_option": "taberu",
+    "explanation": "食べる dibaca taberu, yang artinya adalah makan."
   }
 ]
-Pastikan panjang Array sama dengan ${sentences.length}.
+Pastikan panjang Array sama dengan ${selectedSentences.length}.
 ''';
 
     try {
