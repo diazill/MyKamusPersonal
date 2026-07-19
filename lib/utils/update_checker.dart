@@ -52,11 +52,15 @@ class UpdateChecker {
               isMandatory: isMandatory,
             ),
           );
+        } else if (context.mounted && manualCheck) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ada versi baru ($latestVersion) namun link unduhan belum tersedia di database.')),
+          );
         }
       } else {
         if (manualCheck && context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Anda sudah menggunakan versi terbaru.')),
+            SnackBar(content: Text('Anda sudah menggunakan versi terbaru. (Lokal: $currentVersion, Server: $latestVersion)')),
           );
         }
       }
