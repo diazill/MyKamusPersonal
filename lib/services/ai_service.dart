@@ -10,14 +10,20 @@ class AIService {
     return prefs.getString('gemini_api_key');
   }
 
+  Future<String> _getAiModel() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('gemini_model') ?? 'gemini-2.5-flash';
+  }
+
   Future<Map<String, String>> correctJapaneseSentence(Sentence sentence) async {
     final apiKey = await _getApiKey();
     if (apiKey == null || apiKey.isEmpty) {
       throw Exception('API Key Gemini belum disetel. Silakan atur di menu Setelan.');
     }
+    final modelName = await _getAiModel();
 
     final model = GenerativeModel(
-      model: 'gemini-2.5-flash',
+      model: modelName,
       apiKey: apiKey,
     );
 
@@ -80,9 +86,10 @@ Balas HANYA dalam format JSON dengan struktur berikut (tanpa blok markdown ```js
     if (apiKey == null || apiKey.isEmpty) {
       throw Exception('API Key Gemini belum disetel. Silakan atur di menu Setelan.');
     }
+    final modelName = await _getAiModel();
 
     final model = GenerativeModel(
-      model: 'gemini-2.5-flash',
+      model: modelName,
       apiKey: apiKey,
     );
 

@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/review_card.dart';
 import '../services/firestore_service.dart';
 
@@ -20,12 +21,16 @@ class _SRSSessionScreenState extends State<SRSSessionScreen> with SingleTickerPr
   late AnimationController _animationController;
   late Animation<double> _animation;
 
+  double _easeFactor = 2.5;
+  int _maxInterval = 30;
+
   @override
   void initState() {
     super.initState();
+    _loadSrsSettings();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 300),
     );
     _animation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
@@ -37,6 +42,17 @@ class _SRSSessionScreenState extends State<SRSSessionScreen> with SingleTickerPr
     _animationController.dispose();
     super.dispose();
   }
+
+  Future<void> _loadSrsSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _easeFactor = prefs.getDouble('srs_ease_factor') ?? 2.5;
+        _maxInterval = prefs.getInt('srs_max_interval') ?? 30;
+      });
+    }
+  }
+
 
   void _flipCard() {
     if (_showAnswer) return;
@@ -55,7 +71,7 @@ class _SRSSessionScreenState extends State<SRSSessionScreen> with SingleTickerPr
     int intervalDays = 1;
     
     // Simplistic SM-2 inspired calculation
-    double easeFactor = 2.5; 
+    double easeFactor = _easeFactor; 
     
     if (grade == 0) { // Lupa
       newSrs = 0;
@@ -74,7 +90,7 @@ class _SRSSessionScreenState extends State<SRSSessionScreen> with SingleTickerPr
       else intervalDays = (4 * easeFactor).round();
     }
 
-    if (intervalDays > 30) intervalDays = 30; // Max interval
+    if (intervalDays > _maxInterval) intervalDays = _maxInterval; // Max interval
     final nextReview = DateTime.now().add(Duration(days: intervalDays));
     
     await _firestoreService.updateCardSrs(card.id, card.type, newSrs, nextReview);

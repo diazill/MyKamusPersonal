@@ -22,6 +22,7 @@ class SetelanScreen extends StatefulWidget {
 class _SetelanScreenState extends State<SetelanScreen> {
   bool _isDarkMode = false;
   double _easeFactor = 2.5;
+  int _maxInterval = 30;
 
   // Import State
   bool _isImporting = false;
@@ -33,18 +34,51 @@ class _SetelanScreenState extends State<SetelanScreen> {
   // AI Config
   final TextEditingController _apiKeyController = TextEditingController();
   bool _isSavingKey = false;
+  String _selectedAiModel = 'gemini-2.5-flash';
+  final List<String> _aiModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.5-flash', 'gemini-2.5-pro'];
 
   @override
   void initState() {
     super.initState();
     _loadAppVersion();
     _loadApiKey();
+    _loadSrsSettings();
+  }
+
+  Future<void> _loadSrsSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _easeFactor = prefs.getDouble('srs_ease_factor') ?? 2.5;
+      _maxInterval = prefs.getInt('srs_max_interval') ?? 30;
+    });
+  }
+
+  Future<void> _saveSrsEaseFactor(double val) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('srs_ease_factor', val);
+  }
+
+  Future<void> _saveSrsMaxInterval(int val) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('srs_max_interval', val);
+    setState(() {
+      _maxInterval = val;
+    });
   }
 
   Future<void> _loadApiKey() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _apiKeyController.text = prefs.getString('gemini_api_key') ?? '';
+      _selectedAiModel = prefs.getString('gemini_model') ?? 'gemini-2.5-flash';
+    });
+  }
+
+  Future<void> _saveAiModel(String model) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('gemini_model', model);
+    setState(() {
+      _selectedAiModel = model;
     });
   }
 
@@ -265,6 +299,46 @@ class _SetelanScreenState extends State<SetelanScreen> {
                       fontSize: 12,
                       color: colors.onSurfaceVariant,
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text(
+                        'Model',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: colors.onSurface,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _selectedAiModel,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: colors.surface,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          items: _aiModels.map((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value, style: const TextStyle(fontFamily: 'Inter', fontSize: 14)),
+                            );
+                          }).toList(),
+                          onChanged: (String? newValue) {
+                            if (newValue != null) {
+                              _saveAiModel(newValue);
+                            }
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -851,6 +925,9 @@ class _SetelanScreenState extends State<SetelanScreen> {
                 _easeFactor = val;
               });
             },
+            onChangeEnd: (val) {
+              _saveSrsEaseFactor(val);
+            },
           ),
           const SizedBox(height: 24),
 
@@ -869,7 +946,7 @@ class _SetelanScreenState extends State<SetelanScreen> {
                 ),
               ),
               Text(
-                '30 hari',
+                '$_maxInterval hari',
                 style: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: 24,
@@ -882,11 +959,11 @@ class _SetelanScreenState extends State<SetelanScreen> {
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _buildIntervalBtn('7 HARI', false, colors)),
+              Expanded(child: _buildIntervalBtn('7 HARI', _maxInterval == 7, colors, () => _saveSrsMaxInterval(7))),
               const SizedBox(width: 8),
-              Expanded(child: _buildIntervalBtn('30 HARI', true, colors)),
+              Expanded(child: _buildIntervalBtn('30 HARI', _maxInterval == 30, colors, () => _saveSrsMaxInterval(30))),
               const SizedBox(width: 8),
-              Expanded(child: _buildIntervalBtn('90 HARI', false, colors)),
+              Expanded(child: _buildIntervalBtn('90 HARI', _maxInterval == 90, colors, () => _saveSrsMaxInterval(90))),
             ],
           ),
         ],
@@ -894,22 +971,25 @@ class _SetelanScreenState extends State<SetelanScreen> {
     );
   }
 
-  Widget _buildIntervalBtn(String text, bool isSelected, ColorScheme colors) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        color: isSelected ? colors.onPrimaryContainer : colors.primary,
-        borderRadius: BorderRadius.circular(8),
-        border: isSelected ? Border.all(color: colors.primary, width: 2) : null,
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        text,
-        style: TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: isSelected ? colors.primaryContainer : colors.onPrimaryContainer,
+  Widget _buildIntervalBtn(String text, bool isSelected, ColorScheme colors, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? colors.onPrimaryContainer : colors.primary,
+          borderRadius: BorderRadius.circular(8),
+          border: isSelected ? Border.all(color: colors.primary, width: 2) : null,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          text,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: isSelected ? colors.primaryContainer : colors.onPrimaryContainer,
+          ),
         ),
       ),
     );
