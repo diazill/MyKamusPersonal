@@ -35,10 +35,11 @@ class _AIQuizScreenState extends State<AIQuizScreen> {
       });
     } else {
       // Finish Quiz
-      int score = 0;
+      int correctCount = 0;
       for (var q in widget.questions) {
-        if (q.userOption == q.correctOption) score += 100 ~/ widget.questions.length;
+        if (q.userOption == q.correctOption) correctCount++;
       }
+      int score = (correctCount / widget.questions.length * 100).round();
       
       final history = QuizHistory(
         id: '',

@@ -3,6 +3,7 @@ import '../utils/snackbar_utils.dart';
 import '../services/firestore_service.dart';
 import 'srs_session_screen.dart';
 import 'quiz_loading_screen.dart';
+import '../models/sentence.dart';
 
 class BelajarScreen extends StatelessWidget {
   const BelajarScreen({Key? key}) : super(key: key);
@@ -31,16 +32,31 @@ class BelajarScreen extends StatelessWidget {
     final firestore = FirestoreService();
     SnackbarUtils.showCustomAlert(context, isSuccess: true, message: 'Menyiapkan kuis AI...');
     
-    // For quiz, get active sentences and shuffle them. Limit to 10.
-    final allSnapshot = await firestore.getSentencesStream().first;
+    // For quiz, get active sentences and vocabularies.
+    final sentencesSnapshot = await firestore.getSentencesStream().first;
+    final vocabulariesSnapshot = await firestore.getVocabulariesStream().first;
     if (!context.mounted) return;
     
-    if (allSnapshot.isEmpty) {
+    // Convert vocabularies to sentences for the quiz
+    final vocabAsSentences = vocabulariesSnapshot.map((v) => Sentence(
+      id: v.id,
+      jpText: v.kanji.isNotEmpty ? v.kanji : v.reading,
+      reading: v.reading,
+      meaning: v.meaningId,
+      romaji: v.romaji,
+      srsLevel: v.srsLevel,
+      nextReview: v.nextReview,
+      createdAt: v.createdAt,
+    )).toList();
+
+    final allItems = [...sentencesSnapshot, ...vocabAsSentences];
+    
+    if (allItems.isEmpty) {
       SnackbarUtils.showCustomAlert(context, isSuccess: false, message: 'Anda belum memiliki kosakata/kalimat untuk kuis.');
       return;
     }
     
-    final list = List.of(allSnapshot)..shuffle();
+    final list = List.of(allItems)..shuffle();
     final quizSentences = list.take(10).toList(); // Target harian 10 soal
 
     Navigator.push(

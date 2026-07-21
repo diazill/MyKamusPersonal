@@ -100,12 +100,16 @@ Balas HANYA dalam format JSON dengan struktur berikut (tanpa blok markdown ```js
     // Prepare vocab list for prompt
     final vocabList = selectedSentences.map((s) => '- Jepang: ${s.jpText} | Romaji: ${s.romaji} | Arti: ${s.meaning}').join('\n');
 
+    final randomSeed = DateTime.now().millisecondsSinceEpoch;
+
     final prompt = '''
 Anda adalah pembuat kuis bahasa Jepang yang sangat kreatif. Saya memiliki daftar ${selectedSentences.length} kosakata/kalimat acak berikut:
 $vocabList
 
 Buatlah kuis pilihan ganda berjumlah persis ${selectedSentences.length} soal dari daftar di atas.
 SANGAT PENTING: Anda WAJIB memberikan VARIASI tipe soal yang BERBEDA-BEDA secara merata. JANGAN ulangi tipe soal yang sama lebih dari 2 kali berturut-turut. Pastikan setidaknya 6 dari 7 tipe soal di bawah ini muncul di dalam kuis.
+Untuk memastikan kuis ini unik setiap kali digenerate, berikut adalah seed keacakan untuk sesi ini: $randomSeed. Mohon hasilkan soal dan opsi pengecoh (distractor) yang SEGAR dan BERBEDA dari sebelumnya.
+
 Gunakan variasi tipe soal berikut secara acak:
 1. Tebak arti dari Jepang ke Indonesia.
 2. Terjemahkan dari Indonesia ke Jepang.

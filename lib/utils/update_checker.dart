@@ -76,22 +76,29 @@ class UpdateChecker {
 
   // Simple version comparison logic (e.g. "1.0.1" vs "1.0.2")
   static bool _isNewerVersion(String currentVersion, String latestVersion) {
-    List<String> currentParts = currentVersion.split('.');
-    List<String> latestParts = latestVersion.split('.');
-
-    for (int i = 0; i < currentParts.length && i < latestParts.length; i++) {
-      int currentPart = int.tryParse(currentParts[i]) ?? 0;
-      int latestPart = int.tryParse(latestParts[i]) ?? 0;
-
-      if (latestPart > currentPart) {
-        return true; // Latest is newer
-      } else if (latestPart < currentPart) {
-        return false; // Current is newer
+    List<int> parseVersion(String version) {
+      String v = version;
+      int build = 0;
+      if (v.contains('+')) {
+        var parts = v.split('+');
+        v = parts[0];
+        build = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
       }
+      List<String> parts = v.split('.');
+      int major = parts.isNotEmpty ? (int.tryParse(parts[0]) ?? 0) : 0;
+      int minor = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+      int patch = parts.length > 2 ? (int.tryParse(parts[2]) ?? 0) : 0;
+      return [major, minor, patch, build];
+    }
+
+    List<int> current = parseVersion(currentVersion);
+    List<int> latest = parseVersion(latestVersion);
+
+    for (int i = 0; i < 4; i++) {
+      if (latest[i] > current[i]) return true;
+      if (latest[i] < current[i]) return false;
     }
     
-    // If we get here, they are equal up to the checked parts.
-    // e.g. "1.0" vs "1.0.1"
-    return latestParts.length > currentParts.length;
+    return false;
   }
 }
