@@ -217,6 +217,17 @@ class FirestoreService {
       final doc = await _db.collection('app_config').doc('version_info').get();
       if (doc.exists) {
         return doc.data();
+      } else {
+        // Otomatis buat dokumen jika belum ada
+        final defaultData = {
+          'latest_version': '1.0.6+10',
+          'apk_url': '',
+          'exe_url': '',
+          'release_notes': 'Terdapat perbaikan fitur kuis AI dan Update Checker',
+          'is_mandatory': false,
+        };
+        await _db.collection('app_config').doc('version_info').set(defaultData);
+        return defaultData;
       }
     } catch (e) {
       print('Error checking for updates: $e');
