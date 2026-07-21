@@ -21,8 +21,16 @@ class UpdateChecker {
       }
       
       final String latestVersion = updateInfo['latest_version'] ?? '0.0.0';
-      final String apkUrl = updateInfo['apk_url'] ?? '';
-      final String exeUrl = updateInfo['exe_url'] ?? '';
+      final String versionWithoutBuild = latestVersion.contains('+') ? latestVersion.split('+')[0] : latestVersion;
+      
+      final String apkUrl = updateInfo['apk_url']?.toString().isNotEmpty == true 
+          ? updateInfo['apk_url'] 
+          : 'https://github.com/diazill/MyKamusPersonal/releases/download/v$versionWithoutBuild/app-release.apk';
+          
+      final String exeUrl = updateInfo['exe_url']?.toString().isNotEmpty == true 
+          ? updateInfo['exe_url'] 
+          : 'https://github.com/diazill/MyKamusPersonal/releases/download/v$versionWithoutBuild/MyKamusPersonal_Installer_v$versionWithoutBuild.exe';
+          
       final String releaseNotes = updateInfo['release_notes'] ?? 'Ada pembaruan baru.';
       final bool isMandatory = updateInfo['is_mandatory'] ?? false;
       
