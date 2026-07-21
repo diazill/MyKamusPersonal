@@ -150,24 +150,27 @@ class _QuizLoadingScreenState extends State<QuizLoadingScreen> with SingleTicker
                   AnimatedBuilder(
                     animation: _pulseController,
                     builder: (context, child) {
-                      return Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF32445b).withOpacity(0.2 * _pulseController.value),
-                              spreadRadius: 20 * _pulseController.value,
-                              blurRadius: 30,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.psychology,
-                          size: 64,
-                          color: Color(0xFF32445b),
+                      return Transform.scale(
+                        scale: 1.0 + (0.05 * _pulseController.value),
+                        child: Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF32445b).withOpacity(0.2 * _pulseController.value),
+                                spreadRadius: 20 * _pulseController.value,
+                                blurRadius: 30,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.psychology,
+                            size: 64,
+                            color: Color(0xFF32445b),
+                          ),
                         ),
                       );
                     },
@@ -204,14 +207,20 @@ class _QuizLoadingScreenState extends State<QuizLoadingScreen> with SingleTicker
                     width: 240,
                     child: Column(
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: _progress,
-                            minHeight: 6,
-                            backgroundColor: const Color(0xFFe6e8eb),
-                            color: const Color(0xFF32445b),
-                          ),
+                        TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: 0, end: _progress),
+                          duration: const Duration(milliseconds: 800),
+                          builder: (context, value, _) {
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: value,
+                                minHeight: 6,
+                                backgroundColor: const Color(0xFFe6e8eb),
+                                color: const Color(0xFF32445b),
+                              ),
+                            );
+                          },
                         ),
                         const SizedBox(height: 16),
                         Row(

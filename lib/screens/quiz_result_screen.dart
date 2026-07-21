@@ -181,10 +181,8 @@ class QuizResultScreen extends StatelessWidget {
                                           fontWeight: FontWeight.bold,
                                           color: Color(0xFF191c1e),
                                         ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      const SizedBox(height: 4),
+                                      const SizedBox(height: 8),
                                       if (isCorrect)
                                         Text(
                                           q.correctOption,
@@ -193,8 +191,6 @@ class QuizResultScreen extends StatelessWidget {
                                             fontSize: 14,
                                             color: Color(0xFF454652),
                                           ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
                                         )
                                       else
                                         RichText(
@@ -215,9 +211,37 @@ class QuizResultScreen extends StatelessWidget {
                                               TextSpan(text: q.correctOption),
                                             ],
                                           ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
                                         ),
+                                      const SizedBox(height: 12),
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFf7f9fc),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Icon(
+                                              Icons.info_outline,
+                                              size: 16,
+                                              color: Color(0xFF32445b),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                q.explanation.isNotEmpty ? q.explanation : 'Penjelasan tidak tersedia.',
+                                                style: const TextStyle(
+                                                  fontFamily: 'Inter',
+                                                  fontSize: 13,
+                                                  color: Color(0xFF454652),
+                                                  height: 1.5,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),

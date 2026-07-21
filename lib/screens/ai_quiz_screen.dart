@@ -121,12 +121,27 @@ class _AIQuizScreenState extends State<AIQuizScreen> {
             
             // Main content
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Question
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 400),
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0.0, 0.05),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  );
+                },
+                child: SingleChildScrollView(
+                  key: ValueKey<int>(_currentIndex),
+                  padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Question
                     Container(
                       padding: const EdgeInsets.only(left: 16),
                       decoration: const BoxDecoration(
@@ -252,6 +267,7 @@ class _AIQuizScreenState extends State<AIQuizScreen> {
                   ],
                 ),
               ),
+            ),
             ),
             
             // Action

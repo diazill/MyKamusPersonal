@@ -132,7 +132,7 @@ Format JSON harus berupa Array of Object. Setiap object merepresentasikan 1 soal
     "question": "Pilih romaji yang tepat untuk 食べる:",
     "options": ["taberu", "nomu", "neru", "iku"],
     "correct_option": "taberu",
-    "explanation": "食べる dibaca taberu, yang artinya adalah makan."
+    "explanation": "Berikan penjelasan komprehensif MENGAPA opsi yang benar itu tepat, dan sertakan juga alasan MENGAPA 3 opsi lainnya (pengecoh) SALAH. Penjelasan harus sangat detail dan edukatif."
   }
 ]
 Pastikan panjang Array sama dengan ${selectedSentences.length}.
