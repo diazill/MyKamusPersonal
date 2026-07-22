@@ -48,3 +48,18 @@ jobs:
             build/app/outputs/flutter-apk/app-release.apk
             build/windows/installer/*.exe
           generate_release_notes: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          node-version: '18'
+
+      - name: Update Firestore
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          VERSION_TAG: ${{ github.ref_name }}
+        run: |
+          npm install firebase-admin
+          node scripts/update_firestore.js
