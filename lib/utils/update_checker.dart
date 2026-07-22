@@ -85,17 +85,18 @@ class UpdateChecker {
   // Simple version comparison logic (e.g. "1.0.1" vs "1.0.2")
   static bool _isNewerVersion(String currentVersion, String latestVersion) {
     List<int> parseVersion(String version) {
-      String v = version;
+      // Remove leading 'v' or 'V' and any spaces
+      String v = version.trim().replaceAll(RegExp(r'^v', caseSensitive: false), '');
       int build = 0;
       if (v.contains('+')) {
         var parts = v.split('+');
         v = parts[0];
-        build = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+        build = int.tryParse(parts.length > 1 ? parts[1].replaceAll(RegExp(r'[^0-9]'), '') : '0') ?? 0;
       }
       List<String> parts = v.split('.');
-      int major = parts.isNotEmpty ? (int.tryParse(parts[0]) ?? 0) : 0;
-      int minor = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
-      int patch = parts.length > 2 ? (int.tryParse(parts[2]) ?? 0) : 0;
+      int major = parts.isNotEmpty ? (int.tryParse(parts[0].replaceAll(RegExp(r'[^0-9]'), '')) ?? 0) : 0;
+      int minor = parts.length > 1 ? (int.tryParse(parts[1].replaceAll(RegExp(r'[^0-9]'), '')) ?? 0) : 0;
+      int patch = parts.length > 2 ? (int.tryParse(parts[2].replaceAll(RegExp(r'[^0-9]'), '')) ?? 0) : 0;
       return [major, minor, patch, build];
     }
 
